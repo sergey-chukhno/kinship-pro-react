@@ -156,14 +156,16 @@ const Members: React.FC = () => {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const addMemberDropdownRef = useRef<HTMLDivElement>(null);
 
-  // BLEU Premium: selected company allows adding members under 15
-  const companyAllowsMinorMembers = useMemo(() => {
-    if (state.showingPageType !== 'pro' || !state.user?.available_contexts?.companies) return false;
+  // BLEU Premium: selected company allows adding members under digital majority age
+  const selectedCompanyContext = useMemo(() => {
+    if (state.showingPageType !== 'pro' || !state.user?.available_contexts?.companies) return null;
     const selectedCompanyId = getSelectedCompanyId(state.user, state.showingPageType);
-    if (selectedCompanyId == null) return false;
-    const company = state.user.available_contexts.companies.find((c: any) => c.id === selectedCompanyId);
-    return !!(company && (company as any).allows_minor_members);
+    if (selectedCompanyId == null) return null;
+    return state.user.available_contexts.companies.find((c: any) => c.id === selectedCompanyId) || null;
   }, [state.showingPageType, state.user?.available_contexts?.companies, state.user?.id]);
+
+  const companyAllowsMinorMembers = !!(selectedCompanyContext as any)?.allows_minor_members;
+  const companyDigitalMajorityAge = Number((selectedCompanyContext as any)?.digital_majority_age) || 15;
 
   // const classLists = mockClassLists;
   const [classLists, setClassLists] = useState<ClassList[]>([])
@@ -1932,7 +1934,7 @@ const Members: React.FC = () => {
                     onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'white'; }}
                   >
                     <i className="fas fa-child" style={{ marginRight: '8px' }}></i>
-                    Créer un membre mineur (&lt;15 ans)
+                    Créer un membre mineur (&lt;{companyDigitalMajorityAge} ans)
                   </button>
                 </div>
               )}
@@ -2614,6 +2616,7 @@ const Members: React.FC = () => {
           onAdd={handleAddMember}
           onSuccess={handleMemberCreated}
           variant={addMemberModalVariant}
+          digitalMajorityAge={companyDigitalMajorityAge}
         />
       )}
 
@@ -2636,6 +2639,7 @@ const Members: React.FC = () => {
         onImport={handleCsvImport}
         isSchool={isSchoolContext}
         allowsMinorMembers={companyAllowsMinorMembers}
+        digitalMajorityAge={companyDigitalMajorityAge}
       />
 
       {isRecentImportsOpen ? (

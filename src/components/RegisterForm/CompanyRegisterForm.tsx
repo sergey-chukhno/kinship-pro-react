@@ -79,7 +79,9 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     companyCity: "",
     companyZipCode: "",
     referentPhoneNumber: "",
+    countryCode: "FR",
     siretNumber: "",
+    enterpriseNumber: "",
     companyEmail: "",
     website: "",
     proposeWorkshop: false, // <- NOUVEAU
@@ -114,6 +116,9 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     }
     if (msg.includes("siret")) {
       return "SIRET invalide : 14 chiffres sans espace. Exemple : 12345678901234."
+    }
+    if (msg.includes("enterprise") || msg.includes("entreprise")) {
+      return "Numéro d'entreprise belge invalide (10 chiffres, ex. 0435.187.629)."
     }
     if (msg.includes("uai")) {
       return "Code UAI invalide : 7 chiffres suivis d'une lettre. Exemple : 0591234A."
@@ -653,18 +658,49 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             </div>
 
             <div className="form-field">
-              <label className="form-label">Numero de SIRET *</label>
-              <input
-                type="text"
-                name="siretNumber"
-                placeholder="Numero de SIRET"
-                value={company.siretNumber ?? ""}
+              <label className="form-label">Pays *</label>
+              <select
+                name="countryCode"
+                value={company.countryCode ?? "FR"}
                 onChange={handleCompanyChange}
                 required
                 className="form-input"
-              />
-              <small style={{ color: "#6b7280", fontSize: "0.85rem" }}>14 chiffres sans espace, ex : 12345678901234</small>
+              >
+                <option value="FR">France</option>
+                <option value="BE">Belgique</option>
+              </select>
+              <small style={{ color: "#6b7280", fontSize: "0.85rem" }}>Le pays est fixé à la création (modifiable ensuite uniquement par Kinship).</small>
             </div>
+
+            {(company.countryCode ?? "FR") === "FR" ? (
+              <div className="form-field">
+                <label className="form-label">Numéro de SIRET *</label>
+                <input
+                  type="text"
+                  name="siretNumber"
+                  placeholder="Numéro de SIRET"
+                  value={company.siretNumber ?? ""}
+                  onChange={handleCompanyChange}
+                  required
+                  className="form-input"
+                />
+                <small style={{ color: "#6b7280", fontSize: "0.85rem" }}>14 chiffres sans espace, ex : 12345678901234</small>
+              </div>
+            ) : (
+              <div className="form-field">
+                <label className="form-label">Numéro d&apos;entreprise *</label>
+                <input
+                  type="text"
+                  name="enterpriseNumber"
+                  placeholder="0435.187.629"
+                  value={company.enterpriseNumber ?? ""}
+                  onChange={handleCompanyChange}
+                  required
+                  className="form-input"
+                />
+                <small style={{ color: "#6b7280", fontSize: "0.85rem" }}>10 chiffres BCE — accepte 0435.187.629 ou BE0435.187.629</small>
+              </div>
+            )}
 
             <div className="form-field">
               <label className="form-label">Adresse email de l'organisation *</label>

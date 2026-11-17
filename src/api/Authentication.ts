@@ -29,7 +29,9 @@ interface formData {
     companyZipCode?: string;
     companyCity?: string;
     companyEmail?: string;
+    countryCode?: string;
     siretNumber?: string;
+    enterpriseNumber?: string;
     website?: string
     referentPhoneNumber?: string;
     acceptPrivacyPolicy?: boolean;
@@ -219,7 +221,9 @@ export function submitCompanyRegistration(formData: formData) {
             city: formData.companyCity,
             referent_phone_number: formData.referentPhoneNumber || null,
             email: formData.companyEmail, // NEW
-            siret_number: formData.siretNumber, // NEW
+            country_code: formData.countryCode || "FR",
+            siret_number: formData.countryCode === "BE" ? null : formData.siretNumber,
+            enterprise_number: formData.countryCode === "BE" ? formData.enterpriseNumber : null,
             website: formData.website, //NEW
             take_trainee: formData.takeTrainee,
             propose_workshop: formData.proposeWorkshop || false,
