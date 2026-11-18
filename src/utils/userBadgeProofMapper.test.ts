@@ -11,19 +11,20 @@ function baseUserBadge(overrides: Record<string, unknown> = {}): Record<string, 
     comment: null,
     skills_indicated: [],
     documents: [],
-    badge: { title: 'Compétence test', level: 'level_1', series: 'Référentiel' },
+    badge: { title: 'Compétence test', level: 'level_1', series: 'Série' },
     receiver: { full_name: 'Alice Test' },
     sender: { full_name: 'Bob Sender', job: null },
     organization: { name: 'École Test', type: 'School', trust_level: 'STANDARD' },
-    project: { title: 'Projet test' },
+    project: { title: 'Projet Test' },
     ...overrides,
   };
 }
 
-describe('mapUserBadgeToProofData retention', () => {
+describe('mapUserBadgeToProofData retentionExpiry', () => {
   it('formats retention_expiry_at as French date, not awardedDate', () => {
     const proof = mapUserBadgeToProofData(
       baseUserBadge({
+        assigned_at: '2026-01-25T12:00:00Z',
         retention_expiry_at: '2031-01-25T12:00:00Z',
       })
     );
@@ -33,8 +34,13 @@ describe('mapUserBadgeToProofData retention', () => {
     expect(proof.retentionExpiry).not.toBe(proof.awardedDate);
   });
 
-  it('uses em dash when retention_expiry_at is absent (no awardedDate fallback)', () => {
-    const proof = mapUserBadgeToProofData(baseUserBadge({ retention_expiry_at: null }));
+  it('returns em dash when retention_expiry_at is absent (no awardedDate fallback)', () => {
+    const proof = mapUserBadgeToProofData(
+      baseUserBadge({
+        assigned_at: '2026-01-25T12:00:00Z',
+        retention_expiry_at: null,
+      })
+    );
 
     expect(proof.awardedDate).toMatch(/2026/);
     expect(proof.retentionExpiry).toBe('—');
