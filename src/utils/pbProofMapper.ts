@@ -7,6 +7,7 @@ import {
 } from './civilDataErased';
 import { resolveQualityFrameworkLabel } from './qualityFrameworkLabel';
 import { getLevelLabel } from './badgeLevelLabels';
+import { formatProofDateFr, formatRetentionExpiry } from './formatRetentionExpiry';
 
 const IDENTITY_MASKED = 'Identité masquée';
 const CIVIL_ERASED = CIVIL_DATA_ERASED_LABEL;
@@ -67,24 +68,7 @@ function formatBadgeLevel(level: string | null | undefined, series: string | nul
 }
 
 function formatAwardedDate(timestamp?: string | null): string {
-  if (!timestamp) return '—';
-  const date = new Date(timestamp);
-  if (Number.isNaN(date.getTime())) return '—';
-  return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
-}
-
-/** Prefers retention_expiry_at date; never returns raw policy codes (e.g. 5_YEARS). */
-function formatRetention(
-  expiryAt?: string | null,
-  policy?: string | null,
-  awardedDate?: string
-): string {
-  if (expiryAt) {
-    const formatted = formatAwardedDate(expiryAt);
-    if (formatted !== '—') return formatted;
-  }
-  if (policy === 'lifetime') return 'Conservation à vie';
-  return awardedDate ?? '—';
+  return formatProofDateFr(timestamp);
 }
 
 function resolveTrustLevel(api: BadgeProofApiResponse): TrustLevelKey {
@@ -217,7 +201,7 @@ export function mapProofApiToProofData(
     senderCommentLang: null,
     payloadHash: truncateHash(api.payload_hash) ?? '—',
     hashVersion: api.hash_version ?? 'sha256-v1',
-    retentionExpiry: formatRetention(api.retention_expiry_at, api.retention_policy, awardedDate),
+    retentionExpiry: formatRetentionExpiry(api.retention_expiry_at, api.retention_policy),
     ppProofNumber: api.pp_proof_number ?? null,
     shareUrl: shareToken
       ? `mykinship.fr/${proofType.toLowerCase()}/${shareToken}`

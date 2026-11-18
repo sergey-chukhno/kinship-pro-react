@@ -120,7 +120,7 @@ describe('mapPbProofApiToProofData retention and comment (Patrick public proof)'
     const proof = mapPbProofApiToProofData(api);
 
     expect(proof.retentionExpiry).not.toContain('5_YEARS');
-    expect(proof.retentionExpiry).toMatch(/2026/);
+    expect(proof.retentionExpiry).toBe('—');
   });
 
   it('hides CIVIL_DATA_ERASED sender_comment', () => {
