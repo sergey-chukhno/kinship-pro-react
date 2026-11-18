@@ -919,6 +919,47 @@
   color: #4c4a44;
 }
 
+/* Patrick B1/B2 — « Déjà attesté » (gris secondaire, non cliquable) */
+.att-deja-atteste-label {
+  color: #8f8d86;
+  font-weight: 700;
+}
+
+.att-card-frozen {
+  background: transparent;
+  border-color: #e4e2da;
+  pointer-events: none;
+  cursor: default;
+}
+
+.att-card-frozen .att-card-title {
+  color: #4c4a44;
+}
+
+.att-frozen-skills {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.att-frozen-skill {
+  font-size: 13px;
+  font-weight: 400;
+  color: #8f8d86;
+  line-height: 1.35;
+}
+
+.att-participant-frozen {
+  pointer-events: none;
+  cursor: default;
+  background: transparent;
+  border-color: #e4e2da;
+  color: #8f8d86;
+  font-weight: 400;
+}
+
 .att-ev-list {
   margin-top: 6px;
   display: flex;

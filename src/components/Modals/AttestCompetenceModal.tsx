@@ -34,6 +34,10 @@ import {
 import { ProofCardCompact } from '../Proof/ProofCardCompact';
 import { readAttestLastSeries, writeAttestLastSeries } from '../../utils/attestLastSeries';
 import {
+  participantChipName as chipName,
+  participantMatchesSearch,
+} from '../../utils/participantSearchMatch';
+import {
   getCpsAxeColor,
   getCpsLocalBadgeImage,
   isCompetencesPsychosocialesSeries,
@@ -48,6 +52,7 @@ import {
   getSoftSkillsAxeColor,
   getSoftSkillsLocalPicto,
 } from '../../utils/softSkillsSeries';
+import { projectStepAttestLabel } from '../../utils/projectStepLabels';
 import {
   filterAttestSelectableLevels,
   softSkillsPastilleLevels,
@@ -145,10 +150,11 @@ type CompetenceDraft = {
   fileName: string;
 };
 
-type FrozenProof = {
+/** Preuve déjà émise dans ce projet par l’adulte connecté (source unique B1/B2). */
+type SenderProjectProof = {
   name: string;
   level: string;
-  date?: string;
+  receiverId: string;
 };
 
 // Constat ajusté individuellement (mode « participant par participant », écran 8).
@@ -172,12 +178,6 @@ const CATALOGUE_MARKERS = [
 ];
 
 const PARTICIPANTS_INITIAL_COUNT = 8;
-
-const chipName = (name: string): string => {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) return parts[0];
-  return `${parts[0]} ${parts[parts.length - 1][0]}.`;
-};
 
 // « Léa M., Amir B. et Chloé D. » — recap groupé du constat (écran 5, mode groupe).
 const joinFr = (names: string[]): string => {
@@ -320,8 +320,10 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
   const [eventOpen, setEventOpen] = useState(false);
   const [commentFieldOpen, setCommentFieldOpen] = useState(false);
   const [proofFieldOpen, setProofFieldOpen] = useState(false);
-  const [projectEvents, setProjectEvents] = useState<Array<{ id: number; title: string; date?: string }>>([]);
-  const [frozen, setFrozen] = useState<FrozenProof[]>([]);
+  const [projectEvents, setProjectEvents] = useState<
+    Array<{ id: number; title: string; date?: string; event_type?: string }>
+  >([]);
+  const [senderProofs, setSenderProofs] = useState<SenderProjectProof[]>([]);
   const [badges, setBadges] = useState<BadgeAPI[]>([]);
   const [loadingBadges, setLoadingBadges] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -382,25 +384,43 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
       .catch(() => setProjectEvents([]));
   }, [projectId]);
 
+  // Patrick B1/B2 — même source : preuves du projet émises par l’adulte connecté.
   useEffect(() => {
-    if (!isIndividual || !projectId || !preselectedParticipant) return;
-    void getProjectBadges(Number(projectId), 1, 50, { receiver_query: undefined })
+    if (!projectId || state.user?.id == null) {
+      setSenderProofs([]);
+      return;
+    }
+    const senderId =
+      typeof state.user.id === 'number' ? state.user.id : parseInt(String(state.user.id), 10);
+    if (!Number.isFinite(senderId)) {
+      setSenderProofs([]);
+      return;
+    }
+    let cancelled = false;
+    void getProjectBadges(Number(projectId), 1, 100, { sender_id: senderId })
       .then((res) => {
+        if (cancelled) return;
         const rows = (res.data || [])
-          .filter((item: any) => String(item.receiver?.id || item.receiver_id) === String(preselectedParticipant))
           .map((item: any) => {
             const badge = item.badge || {};
-            const date = item.assigned_at || item.created_at;
+            const receiverId = String(item.receiver?.id ?? item.receiver_id ?? '').trim();
+            if (!receiverId) return null;
             return {
               name: badge.name || 'Compétence',
               level: badge.level ? String(badge.level).replace('level_', '') : '1',
-              date: date ? new Date(date).toLocaleDateString('fr-FR') : undefined,
-            } as FrozenProof;
-          });
-        setFrozen(rows);
+              receiverId,
+            } as SenderProjectProof;
+          })
+          .filter(Boolean) as SenderProjectProof[];
+        setSenderProofs(rows);
       })
-      .catch(() => setFrozen([]));
-  }, [isIndividual, projectId, preselectedParticipant]);
+      .catch(() => {
+        if (!cancelled) setSenderProofs([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, state.user?.id]);
 
   const organizationsForSelection = useMemo(() => {
     if (availableOrganizations && availableOrganizations.length > 0) return availableOrganizations;
@@ -526,7 +546,14 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
     return names;
   }, [seriesBadges]);
 
-  const frozenNames = useMemo(() => new Set(frozen.map((f) => f.name)), [frozen]);
+  /** B1 — compétences déjà attestées à cette personne par moi dans ce projet. */
+  const frozenForPerson = useMemo(() => {
+    if (!isIndividual || !preselectedParticipant) return [] as SenderProjectProof[];
+    const rid = String(preselectedParticipant);
+    return senderProofs.filter((p) => p.receiverId === rid);
+  }, [isIndividual, preselectedParticipant, senderProofs]);
+
+  const frozenNames = useMemo(() => new Set(frozenForPerson.map((f) => f.name)), [frozenForPerson]);
 
   const visibleNames = useMemo(() => {
     const rest = competenceNames.filter((n) => !frozenNames.has(n));
@@ -654,28 +681,11 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
       : { isValid: false, errorMessage: 'Cochez au moins un item constaté.' };
   };
 
-  const filteredParticipants = useMemo(() => {
-    const term = participantsSearchTerm.trim().toLowerCase();
-    if (!term) return attestParticipants;
-    return attestParticipants.filter(
-      (p) =>
-        (p.name || '').toLowerCase().includes(term) ||
-        (p.organization || '').toLowerCase().includes(term)
-    );
-  }, [attestParticipants, participantsSearchTerm]);
-
   const toggleParticipant = (memberId: string) => {
     if (isIndividual) return;
     setSelectedParticipants((prev) =>
       prev.includes(memberId) ? prev.filter((id) => id !== memberId) : [...prev, memberId]
     );
-    setConstatMode('groupe');
-    setIndividualDrafts({});
-    setActiveParticipantId(null);
-  };
-
-  const selectAllParticipants = () => {
-    setSelectedParticipants(filteredParticipants.map((p) => p.memberId));
     setConstatMode('groupe');
     setIndividualDrafts({});
     setActiveParticipantId(null);
@@ -831,6 +841,58 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
   const pickedDraft = pickedName ? drafts[pickedName] : undefined;
   const pickedBadge = pickedDraft ? badgeFor(pickedDraft.name, pickedDraft.level) : undefined;
   const pickedComps = pickedBadge ? getBadgeCompetencies(pickedBadge) : [];
+
+  /** B2 — receivers déjà attestés pour la compétence choisie (même adulte, ce projet). */
+  const alreadyAttestedReceiverIds = useMemo(() => {
+    if (!pickedName || isIndividual) return new Set<string>();
+    return new Set(
+      senderProofs.filter((p) => p.name === pickedName).map((p) => p.receiverId)
+    );
+  }, [pickedName, isIndividual, senderProofs]);
+
+  const alreadyAttestedParticipants = useMemo(
+    () =>
+      attestParticipants.filter((p) => alreadyAttestedReceiverIds.has(String(p.memberId))),
+    [attestParticipants, alreadyAttestedReceiverIds]
+  );
+
+  const selectableParticipants = useMemo(
+    () =>
+      attestParticipants.filter((p) => !alreadyAttestedReceiverIds.has(String(p.memberId))),
+    [attestParticipants, alreadyAttestedReceiverIds]
+  );
+
+  const filteredParticipants = useMemo(
+    () =>
+      selectableParticipants.filter((p) =>
+        participantMatchesSearch(p.name || '', participantsSearchTerm)
+      ),
+    [selectableParticipants, participantsSearchTerm]
+  );
+
+  const filteredAlreadyAttestedParticipants = useMemo(
+    () =>
+      alreadyAttestedParticipants.filter((p) =>
+        participantMatchesSearch(p.name || '', participantsSearchTerm)
+      ),
+    [alreadyAttestedParticipants, participantsSearchTerm]
+  );
+
+  const selectAllParticipants = () => {
+    setSelectedParticipants(filteredParticipants.map((p) => p.memberId));
+    setConstatMode('groupe');
+    setIndividualDrafts({});
+    setActiveParticipantId(null);
+  };
+
+  // Drop selections that become « déjà attesté » when competence changes.
+  useEffect(() => {
+    if (isIndividual || alreadyAttestedReceiverIds.size === 0) return;
+    setSelectedParticipants((prev) => {
+      const next = prev.filter((id) => !alreadyAttestedReceiverIds.has(String(id)));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [alreadyAttestedReceiverIds, isIndividual]);
 
   /** Patrick reprise 4 — Attester inactif tant qu’aucun item n’est coché (s’il y a des items). */
   const canAttest = useMemo(() => {
@@ -1436,21 +1498,86 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
 
           {!successState && step === 'competence' && (
             <>
-              {isIndividual && frozen.length > 0 && (
+              {isIndividual && frozenForPerson.length > 0 && (
                 <>
-                  <div className="att-slab">
-                    Déjà attesté <span className="n">— figé au geste</span>
-                  </div>
-                  {frozen.map((f) => (
-                    <div key={`${f.name}-${f.level}`} className="att-frozen">
-                      <span className="att-ok">✓</span>
-                      {getBadgeDisplayName(f.name)}
-                        <span className="att-lv">{getLevelLabel(badgesBySeries[series]?.[0]?.catalog_key || badgesBySeries[series]?.[0]?.series || series, f.level)}</span>
-                      <span style={{ marginLeft: 'auto', fontSize: 11, color: '#8f8d86' }}>
-                        {f.date ? `le ${f.date} · ` : ''}sa preuve est née
-                      </span>
-                    </div>
-                  ))}
+                  <div className="att-slab att-deja-atteste-label">Déjà attesté</div>
+                  {(() => {
+                    const allCards = treeHasCompetenceCards(seriesTree)
+                      ? treeCompetencesAsCards(seriesTree)
+                      : [];
+                    type FrozenGroup = {
+                      key: string;
+                      card: (typeof allCards)[number] | null;
+                      proofs: SenderProjectProof[];
+                    };
+                    const groups = new Map<string, FrozenGroup>();
+                    frozenForPerson.forEach((f) => {
+                      const card = allCards.find((c) => c.badgeNames.includes(f.name)) || null;
+                      const key = card?.key || `solo-${f.name}`;
+                      const cur = groups.get(key) || { key, card, proofs: [] };
+                      cur.proofs.push(f);
+                      groups.set(key, cur);
+                    });
+                    return Array.from(groups.values()).map(({ key, card, proofs }) => {
+                      const sampleName = card?.badgeNames[0] || proofs[0].name;
+                      const title = card
+                        ? card.code
+                          ? `${card.code} · ${card.name}`
+                          : card.name
+                        : getBadgeDisplayName(proofs[0].name);
+                      const softPicto = attestingSoftSkills
+                        ? getSoftSkillsLocalPicto(card?.name || sampleName) ||
+                          getSoftSkillsLocalPicto(sampleName)
+                        : undefined;
+                      const softAxe = attestingSoftSkills
+                        ? getSoftSkillsAxeColor(card?.name || sampleName) ||
+                          getSoftSkillsAxeColor(sampleName)
+                        : undefined;
+                      const cpsIcon = !attestingSoftSkills
+                        ? getCpsLocalBadgeImage(sampleName)
+                        : undefined;
+                      const cpsAxe = !attestingSoftSkills ? getCpsAxeColor(sampleName) : undefined;
+                      const phaseNum = !attestingSoftSkills
+                        ? phaseNumberFromCpsCompetenceCode(card?.code || '')
+                        : null;
+                      const phaseHint = phaseNum
+                        ? getLevelLabel(CATALOG_KEY_CPS, phaseNum)
+                        : proofs[0]
+                          ? getLevelLabel(
+                              badgesBySeries[series]?.[0]?.catalog_key ||
+                                badgesBySeries[series]?.[0]?.series ||
+                                series,
+                              proofs[0].level
+                            )
+                          : null;
+                      return (
+                        <div key={key} className="att-card att-card-frozen" aria-disabled="true">
+                          <div className="att-crow" style={{ border: 0, padding: 0, width: '100%' }}>
+                            <span className="att-avatar" aria-hidden="true">
+                              <AttestCompetencePicto
+                                src={softPicto || cpsIcon}
+                                axeColor={softAxe || cpsAxe}
+                                fallbackLetter={(card?.code || title).trim().charAt(0)}
+                              />
+                            </span>
+                            <span className="att-card-meta">
+                              <span className="att-card-title">{title}</span>
+                              {phaseHint && (
+                                <span className="att-card-phase">{phaseHint}</span>
+                              )}
+                            </span>
+                          </div>
+                          <div className="att-frozen-skills">
+                            {proofs.map((f) => (
+                              <div key={`${f.name}-${f.level}`} className="att-frozen-skill">
+                                {formatBadgeHeadingWithCode(getBadgeDisplayName(f.name))}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
                 </>
               )}
               <div className="att-grp">{seriesLabel(series)}</div>
@@ -1686,7 +1813,7 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
               <div className="att-slab-row">
                 <div className="att-slab">
                   Participants du projet{' '}
-                  <span className="n">— {attestParticipants.length}</span>
+                  <span className="n">— {selectableParticipants.length}</span>
                 </div>
                 <button type="button" className="att-tout-cocher" onClick={selectAllParticipants}>
                   Tout sélectionner
@@ -1694,7 +1821,7 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
               </div>
               <input
                 className="att-search"
-                placeholder="Rechercher…"
+                placeholder="Rechercher un participant"
                 value={participantsSearchTerm}
                 onChange={(e) => setParticipantsSearchTerm(e.target.value)}
               />
@@ -1725,6 +1852,22 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
                 >
                   {filteredParticipants.length - PARTICIPANTS_INITIAL_COUNT} autres participants…
                 </button>
+              )}
+              {filteredAlreadyAttestedParticipants.length > 0 && (
+                <>
+                  <div className="att-slab att-deja-atteste-label">Déjà attesté</div>
+                  <div className="att-participants-grid">
+                    {filteredAlreadyAttestedParticipants.map((p) => (
+                      <div
+                        key={`frozen-${p.memberId}`}
+                        className="att-participant-row att-participant-frozen"
+                        aria-disabled="true"
+                      >
+                        {chipName(p.name)}
+                      </div>
+                    ))}
+                  </div>
+                </>
               )}
               <div className="att-bottombar">
                 <div className="att-recap">
@@ -1914,7 +2057,13 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
                 <div className="att-selon">
                   <b>Constaté pendant :</b>
                   <button type="button" className="att-tog on" onClick={() => setEventOpen((v) => !v)}>
-                    {selon === 'event' && eventId ? projectEvents.find((e) => e.id === eventId)?.title || 'un événement' : 'Le projet'} ▾
+                    {selon === 'event' && eventId
+                      ? (() => {
+                          const ev = projectEvents.find((e) => e.id === eventId);
+                          return ev ? projectStepAttestLabel(ev) : 'un événement';
+                        })()
+                      : 'Le projet'}{' '}
+                    ▾
                   </button>
                 </div>
               )}
@@ -1942,7 +2091,7 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
                         setEventOpen(false);
                       }}
                     >
-                      {ev.title}
+                      {projectStepAttestLabel(ev)}
                     </button>
                   ))}
                 </div>

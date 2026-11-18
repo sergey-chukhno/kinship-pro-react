@@ -9,6 +9,7 @@ import {
   projectToFormationSession,
   type FormationSessionOrgStamp,
 } from '../utils/formationSessionApiMapper';
+import { formationEndCloseErrorMessage } from '../utils/sessionCloseCopy';
 import { cacheFormationSession, getSessionById } from '../utils/formationSessionStore';
 
 function apiErrorMessage(err: any, fallback: string): string {
@@ -216,5 +217,93 @@ export async function declareFormationSessionStart(
     return mapAndCache(project);
   } catch (err: any) {
     throw new Error(apiErrorMessage(err, 'Déclaration du début impossible.'));
+  }
+}
+
+export type FormationEndDeclarationPayload = {
+  active: boolean;
+  declared_at?: string | null;
+  note?: string | null;
+  declared_by_id?: number | null;
+  can_declare_end?: boolean;
+  can_withdraw_end?: boolean;
+};
+
+export type CloseParticipantOutcome = {
+  user_id: number;
+  validated: boolean;
+  result_note?: string;
+};
+
+export type CloseFormationSessionInput = {
+  assessment_results_attached: boolean;
+  trainer_names_shown: boolean;
+  participant_outcomes: CloseParticipantOutcome[];
+};
+
+function endCloseError(err: any, fallback: string): string {
+  const data = err?.response?.data;
+  const code = data?.code || data?.error;
+  if (code) {
+    const mapped = formationEndCloseErrorMessage(code, '');
+    if (mapped) return mapped;
+  }
+  return apiErrorMessage(err, fallback);
+}
+
+/** POST /api/v1/projects/:id/declare_end — V15 §6ter */
+export async function declareFormationSessionEnd(
+  projectId: string | number,
+  note?: string
+): Promise<FormationEndDeclarationPayload> {
+  try {
+    const body = note?.trim() ? { note: note.trim() } : {};
+    const res = await apiClient.post(`/api/v1/projects/${projectId}/declare_end`, body);
+    return (res.data?.data || res.data) as FormationEndDeclarationPayload;
+  } catch (err: any) {
+    throw new Error(endCloseError(err, 'Déclaration de la fin impossible.'));
+  }
+}
+
+/** POST /api/v1/projects/:id/withdraw_end */
+export async function withdrawFormationSessionEnd(
+  projectId: string | number
+): Promise<FormationEndDeclarationPayload> {
+  try {
+    const res = await apiClient.post(`/api/v1/projects/${projectId}/withdraw_end`);
+    return (res.data?.data || res.data) as FormationEndDeclarationPayload;
+  } catch (err: any) {
+    throw new Error(endCloseError(err, 'Retrait de la déclaration impossible.'));
+  }
+}
+
+/** GET /api/v1/projects/:id/end_declaration */
+export async function getFormationEndDeclaration(
+  projectId: string | number
+): Promise<FormationEndDeclarationPayload> {
+  try {
+    const res = await apiClient.get(`/api/v1/projects/${projectId}/end_declaration`);
+    return (res.data?.data || res.data) as FormationEndDeclarationPayload;
+  } catch (err: any) {
+    throw new Error(endCloseError(err, 'Lecture de la déclaration impossible.'));
+  }
+}
+
+/** POST /api/v1/projects/:id/close — V15 §6 (jury + options) */
+export async function closeFormationSession(
+  projectId: string | number,
+  input: CloseFormationSessionInput
+): Promise<FormationSession> {
+  try {
+    const res = await apiClient.post(`/api/v1/projects/${projectId}/close`, {
+      assessment_results_attached: input.assessment_results_attached,
+      trainer_names_shown: input.trainer_names_shown,
+      participant_outcomes: input.participant_outcomes,
+    });
+    let project = res.data?.data || res.data;
+    project = await enrichProjectWithMembers(project);
+    return mapAndCache(project);
+  } catch (err: any) {
+    throw new Error(endCloseError(err, 'Clôture de la session impossible.'));
   }
 }

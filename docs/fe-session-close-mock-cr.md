@@ -86,4 +86,7 @@ S1–S4 initiaux documentés avant les 5 corrections ; remplacés pour le GO par
 
 ## Suite
 
-**GO ** sur Lot 1 (corrections smokées)→ puis **Lot 2** Attester P2.13 V1.4.1
+**GO Lot 1** reçu (Patrick 28/10) — écrans mock validés.  
+**Statut 16/11 :** toujours **écrans seuls** — **pas** de branchement API clôture (contrat Sergey / 24bis). Ce CR reste le livrable « écrans de clôture » pour le retour global A+B.
+
+API clôture / Postmark / registre → plus tard avec Sergey.

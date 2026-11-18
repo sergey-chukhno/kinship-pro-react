@@ -29,13 +29,17 @@ function followViewFromProjectApi(payload: Awaited<ReturnType<typeof getProjectF
     .filter(Boolean)
     .map((text) => ({ text, source: 'projet' }));
 
+  const kind = payload.kind === 'formation' ? 'formation' : 'project';
+
   return {
     token: payload.token,
-    kind: 'project',
+    kind,
     closed: payload.closed,
     declined: payload.declined,
     declinedOn: payload.declined_on || undefined,
+    revoked: Boolean(payload.revoked || payload.end_entry === 'C'),
     closedOn: payload.closed_on || undefined,
+    message: payload.message ?? undefined,
     title: payload.title || '',
     org: payload.org || '',
     orgKind: payload.org_kind || undefined,

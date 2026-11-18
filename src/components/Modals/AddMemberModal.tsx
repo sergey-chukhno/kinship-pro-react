@@ -28,15 +28,23 @@ interface AddMemberModalProps {
   onClose: () => void;
   onAdd: (member: Omit<Member, 'id'>) => void;
   onSuccess?: () => void;
-  /** When 'minor', allows adding members under 15 with legal representative consent (BLEU Premium) */
+  /** When 'minor', allows adding members under org majority age with legal representative consent (BLEU Premium) */
   variant?: 'major' | 'minor';
+  digitalMajorityAge?: number;
 }
 
-const LEGAL_CONSENT_LABEL = "Je déclare avoir informé le représentant légal et avoir obtenu son autorisation préalable pour la création de ce compte.";
-const LEGAL_CONSENT_TRACEABILITY = "Cette déclaration est enregistrée et horodatée à des fins de traçabilité.";
+const LEGAL_CONSENT_LABEL =
+  "Je déclare que, si ce fichier contient des personnes n’ayant pas atteint la majorité numérique (15 ans en France, 13 ans en Belgique), leur représentant légal a été informé et a donné son autorisation préalable à la création de leur compte. Cette déclaration est enregistrée et horodatée à des fins de traçabilité.";
 
-const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSuccess, variant = 'major' }) => {
+const AddMemberModal: React.FC<AddMemberModalProps> = ({
+  onClose,
+  onAdd,
+  onSuccess,
+  variant = 'major',
+  digitalMajorityAge = 15
+}) => {
   const isMinorVariant = variant === 'minor';
+  const majorityAge = digitalMajorityAge || 15;
   const { state } = useAppContext();
   const { showSuccess, showError, showInfo } = useToast();
   const [formData, setFormData] = useState({
@@ -203,8 +211,8 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
       return;
     }
 
-    if (!isMinorVariant && computeAge(formData.birthday) < 15) {
-      showError("Une organisation ne peut pas créer un membre dont l'âge est inférieur à 15 ans.");
+    if (!isMinorVariant && computeAge(formData.birthday) < majorityAge) {
+      showError(`Une organisation ne peut pas créer un membre dont l'âge est inférieur à ${majorityAge} ans.`);
       return;
     }
 
@@ -332,7 +340,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>{isMinorVariant ? 'Créer un membre mineur (<15 ans)' : 'Ajouter un nouveau membre'}</h2>
+          <h2>{isMinorVariant ? `Créer un membre mineur (<${majorityAge} ans)` : 'Ajouter un nouveau membre'}</h2>
           <button className="modal-close" onClick={onClose}>
             <i className="fas fa-times"></i>
           </button>
@@ -342,8 +350,8 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
           <div className="modal-info-block">
             <i className="fas fa-info-circle" aria-hidden />
             <p>
-              Pré-inscription d'une personne de moins de 15 ans.<br />
-              Le représentant légal recevra un email et devra valider l'autorisation. <strong>Sans validation, le rattachement n'est pas effectif.</strong>
+              Pré-inscription d&apos;une personne de moins de {majorityAge} ans.<br />
+              Le représentant légal recevra un email et devra valider l&apos;autorisation. <strong>Sans validation, le rattachement n&apos;est pas effectif.</strong>
             </p>
           </div>
         )}
@@ -446,7 +454,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
                   placeholder="parent@example.com"
                 />
                 <p className="form-hint">
-                  Obligatoire pour les membres de moins de 15 ans (autorisation parentale et renouvellement annuel).
+                  Obligatoire pour les membres de moins de {majorityAge} ans (autorisation parentale et renouvellement annuel).
                 </p>
               </div>
             )}
@@ -463,7 +471,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
                 required
                 className="form-input"
               />
-              <p className="form-hint">{isMinorVariant ? 'Obligatoire.' : "Obligatoire pour tous les membres (âge minimum 15 ans)"}</p>
+              <p className="form-hint">{isMinorVariant ? 'Obligatoire.' : `Obligatoire pour tous les membres (âge minimum ${majorityAge} ans)`}</p>
             </div>
 
             <div className="form-group">
@@ -498,9 +506,6 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
                     />
                     <span>{LEGAL_CONSENT_LABEL} *</span>
                   </label>
-                  <p className="form-hint modal-consent-traceability" style={{ marginTop: '6px', marginLeft: '28px', fontSize: '0.8rem', color: 'var(--text-muted, #6b7280)' }}>
-                    {LEGAL_CONSENT_TRACEABILITY}
-                  </p>
                 </div>
               )}
             </div>
@@ -513,7 +518,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
           </button>
           <button type="submit" className="btn btn-primary" onClick={handleSubmit}>
             <i className="fas fa-plus"></i>
-            {isMinorVariant ? 'Ajouter le membre mineur (<15 ans)' : 'Ajouter le membre'}
+            {isMinorVariant ? `Ajouter le membre mineur (<${majorityAge} ans)` : 'Ajouter le membre'}
           </button>
         </div>
       </div>

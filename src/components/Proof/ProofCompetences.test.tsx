@@ -118,9 +118,12 @@ describe('ProofFullView UX hide (Patrick)', () => {
     expect(screen.queryByText('Non renseigné')).not.toBeInTheDocument();
     expect(screen.queryByText(/Preuve Projet — non encore générée/)).not.toBeInTheDocument();
     expect(screen.queryByText('Exercer mes droits')).not.toBeInTheDocument();
-    // Zone 6 stays outside accordion
+    // Zone 6 stays outside accordion; Copier / Ajouter profil hidden (Patrick A1)
     expect(screen.getByText('Partager et exporter')).toBeInTheDocument();
-    expect(screen.getByText('Ajouter à un profil')).toBeInTheDocument();
+    expect(screen.queryByText('Copier le lien')).not.toBeInTheDocument();
+    expect(screen.queryByText('Ajouter à un profil')).not.toBeInTheDocument();
+    expect(screen.getByText('Avec QR code')).toBeInTheDocument();
+    expect(screen.queryByText(/Avec QR code \/verify/)).not.toBeInTheDocument();
   });
 
   it('shows justificatif and PP link when data is present', () => {

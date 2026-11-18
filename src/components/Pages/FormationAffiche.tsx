@@ -36,6 +36,7 @@ import { useToast } from '../../hooks/useToast';
 import FunderFollowView from '../FunderView/FunderFollowView';
 import { MOCK_FOLLOW_DEBUTER } from '../../data/mockFunderView';
 import { followViewFromFormation } from '../../utils/funderFollowFromFormation';
+import { funderCardInformedLine } from '../../utils/funderInformedLabel';
 import CloseFormationBirthOverlay from '../Modals/CloseFormationBirthOverlay';
 import AttestFormationModal from '../Modals/AttestFormationModal';
 import './FormationAffiche.css';
@@ -1028,7 +1029,12 @@ const FormationAffiche: React.FC = () => {
                   <div className="fa-av">{f.initials}</div>
                   <div>
                     <b>{f.name}</b>
-                    <div className="fa-sub">financeur · informé du démarrage</div>
+                    <div className="fa-sub">
+                      {funderCardInformedLine({
+                        startedNotifiedAt: f.startedNotifiedAt,
+                        shareMode: f.shareMode,
+                      })}
+                    </div>
                   </div>
                 </div>
               ))}

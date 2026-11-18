@@ -1,0 +1,367 @@
+/* FE-63 — carte Étapes + formulaire (Design System Patrick V0.7) */
+
+.ps-steps-card {
+  --ps-steps-ink: #16255a;
+  --ps-steps-muted: #637087;
+  --ps-steps-line: #dde3ee;
+  --ps-steps-space: var(--couleur-espace, #115e59);
+  --ps-steps-space-soft: color-mix(in srgb, var(--ps-steps-space) 12%, #fff);
+  background: #fff;
+  border: 1px solid var(--ps-steps-line);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.ps-steps-card-h {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.ps-steps-card-t {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ps-steps-space);
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.ps-steps-add {
+  display: inline-block;
+  font-size: 13.5px;
+  font-weight: 700;
+  border-radius: 9px;
+  padding: 7px 11px;
+  background: #fff;
+  border: 1px solid var(--ps-steps-space);
+  color: var(--ps-steps-space);
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.ps-steps-add:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ps-steps-card-s {
+  font-size: 12.5px;
+  color: var(--ps-steps-muted);
+  margin-top: 8px;
+}
+
+.ps-steps-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  border-top: 1px solid var(--ps-steps-line);
+  padding: 10px 0 0;
+  margin-top: 10px;
+  font-size: 14px;
+}
+
+.ps-steps-d {
+  width: 46px;
+  font-size: 11px;
+  color: var(--ps-steps-muted);
+  text-align: center;
+  line-height: 1.15;
+  flex-shrink: 0;
+}
+
+.ps-steps-d b {
+  display: block;
+  font-size: 17px;
+  color: var(--ps-steps-ink);
+}
+
+.ps-steps-ty {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ps-steps-space);
+  background: var(--ps-steps-space-soft);
+  border-radius: 999px;
+  padding: 3px 10px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.ps-steps-ti {
+  flex: 1;
+  font-weight: 600;
+  color: var(--ps-steps-ink);
+  min-width: 0;
+}
+
+.ps-steps-pl {
+  color: var(--ps-steps-muted);
+  font-size: 13px;
+  flex-shrink: 0;
+  max-width: 28%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ps-steps-ed {
+  color: var(--ps-steps-muted);
+  font-size: 14px;
+  padding: 2px 4px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+  font-family: inherit;
+}
+
+.ps-steps-ed:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.ps-steps-more {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ps-steps-space);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+
+/* Modal formulaire */
+.ps-step-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(28, 27, 24, 0.45);
+  z-index: 1200;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 48px 16px 24px;
+  overflow-y: auto;
+}
+
+.ps-step-modal {
+  width: 100%;
+  max-width: 520px;
+  background: #fff;
+  border: 1px solid #d9d7cd;
+  border-radius: 12px;
+  padding: 18px 20px;
+  color: #16255a;
+}
+
+.ps-step-modal-mt {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.ps-step-modal-ms {
+  font-size: 12.5px;
+  color: #637087;
+  margin-bottom: 14px;
+}
+
+.ps-step-f {
+  margin-bottom: 12px;
+}
+
+.ps-step-f label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 700;
+  margin-bottom: 5px;
+  color: #16255a;
+}
+
+.ps-step-f label .ob {
+  color: #c0392b;
+  font-style: normal;
+}
+
+.ps-step-in {
+  width: 100%;
+  border: 1.5px solid #637087;
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-size: 14px;
+  color: #16255a;
+  background: #fff;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.ps-step-in:focus {
+  outline: none;
+  border-color: var(--couleur-espace, #115e59);
+}
+
+.ps-step-in.ro {
+  background: #f3f5fa;
+  border-color: #dde3ee;
+  color: #637087;
+}
+
+.ps-step-in.ta {
+  min-height: 56px;
+  resize: vertical;
+}
+
+.ps-step-two {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ps-step-two .ps-step-f {
+  flex: 1;
+  min-width: 100px;
+}
+
+.ps-step-chips {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.ps-step-chip {
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid #dde3ee;
+  border-radius: 999px;
+  padding: 6px 12px;
+  color: #637087;
+  background: #fff;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.ps-step-chip.on {
+  border-color: var(--couleur-espace, #115e59);
+  color: var(--couleur-espace, #115e59);
+  background: color-mix(in srgb, var(--couleur-espace, #115e59) 12%, #fff);
+  font-weight: 700;
+}
+
+.ps-step-chip:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ps-step-mf {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.ps-step-retirer {
+  margin-right: auto;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #16255a;
+  text-decoration: underline;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.ps-step-retirer:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ps-step-btn {
+  display: inline-block;
+  font-size: 14px;
+  font-weight: 700;
+  border-radius: 9px;
+  padding: 9px 14px;
+  cursor: pointer;
+  font-family: inherit;
+  border: 1px solid transparent;
+}
+
+.ps-step-btn.neutre {
+  background: #fff;
+  border-color: #dde3ee;
+  color: #637087;
+}
+
+.ps-step-btn.ambre {
+  background: #ffb557;
+  color: #1c1b18;
+  border-color: #ffb557;
+}
+
+.ps-step-btn.danger {
+  background: #e8a09a;
+  color: #5c1f1a;
+  border-color: #e8a09a;
+}
+
+.ps-step-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ps-step-err {
+  margin-top: 8px;
+  font-size: 12.5px;
+  color: #c0392b;
+}
+
+/* Confirmation Retirer — par-dessus le formulaire Modifier (Patrick) */
+.ps-step-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(28, 27, 24, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 1300;
+}
+
+.ps-step-confirm {
+  width: 100%;
+  max-width: 380px;
+  background: #fff;
+  border: 1px solid #d9d7cd;
+  border-radius: 12px;
+  padding: 18px 20px;
+  box-shadow: 0 8px 28px rgba(28, 27, 24, 0.18);
+}
+
+.ps-step-confirm-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #16255a;
+  margin-bottom: 8px;
+}
+
+.ps-step-confirm-body {
+  margin: 0 0 16px;
+  font-size: 14px;
+  color: #637087;
+  line-height: 1.45;
+}
+
+.ps-step-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
