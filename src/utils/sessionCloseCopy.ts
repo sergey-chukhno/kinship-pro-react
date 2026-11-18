@@ -15,12 +15,37 @@ const MONTHS_FR = [
   'décembre',
 ];
 
-/** ISO YYYY-MM-DD → 17/10/2026 */
+/** ISO YYYY-MM-DD (ou datetime) → 17/10/2026 */
 export function formatDateShortFr(iso?: string): string {
   if (!iso) return '—';
-  const [y, m, d] = iso.split('-');
+  const day = String(iso).includes('T') ? String(iso).slice(0, 10) : String(iso).slice(0, 10);
+  const [y, m, d] = day.split('-');
   if (!y || !m || !d) return iso;
   return `${d}/${m}/${y}`;
+}
+
+/** Map stable API error codes (V15) → FR. Empty string if unknown (caller uses fallback). */
+export function formationEndCloseErrorMessage(code: unknown, fallback: string): string {
+  switch (String(code || '')) {
+    case 'not_in_progress':
+      return 'La session n’est pas en cours.';
+    case 'not_formation':
+      return 'Cette action concerne une session de formation.';
+    case 'not_responsible_trainer':
+      return 'Seul le formateur responsable peut déclarer la fin.';
+    case 'can_close_directly':
+      return 'Votre rôle peut clôturer directement — pas de déclaration de fin.';
+    case 'already_declared':
+      return 'La fin de session est déjà déclarée.';
+    case 'no_active_declaration':
+      return 'Aucune fin de session déclarée.';
+    case 'already_ended':
+      return 'La session est déjà clôturée.';
+    case 'closure_forbidden_for_role':
+      return 'Vous n’êtes pas autorisé à clôturer cette session.';
+    default:
+      return fallback;
+  }
 }
 
 /** ISO → 17 octobre 2026 */

@@ -61,6 +61,8 @@ export interface ProjectBadgesFilters {
   level?: string;
   sender_id?: number;
   receiver_query?: string;
+  /** Clôture V15 — préfill jury « déjà validés ». */
+  badge_role?: string;
 }
 
 /**
@@ -91,7 +93,10 @@ export const getProjectBadges = async (
   if (filters?.receiver_query?.trim()) {
     params.append('receiver_query', filters.receiver_query.trim());
   }
-  
+  if (filters?.badge_role?.trim()) {
+    params.append('badge_role', filters.badge_role.trim());
+  }
+
   const response = await apiClient.get(`/api/v1/projects/${projectId}/badges?${params.toString()}`);
   return {
     data: response.data?.data || [],

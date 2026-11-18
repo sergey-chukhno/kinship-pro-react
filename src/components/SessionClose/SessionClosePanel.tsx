@@ -1,46 +1,57 @@
 import React, { useMemo } from 'react';
 import type { FormationSession } from '../../types/formationSession';
-import {
-  deliversMicrocert,
-  ensureJuryDefaults,
-  setCloseOptionsMock,
-  setJuryDecisionMock,
-  setResultNoteMock,
-  validInvalidCounts,
-  type SessionCloseMock,
-} from '../../utils/sessionCloseMock';
+import { deliversMicrocert, validInvalidCounts, type SessionCloseMock } from '../../utils/sessionCloseMock';
 import { formatDateShortFr, formatDurationHoursLabel } from '../../utils/sessionCloseCopy';
 import { participantCountLabel } from '../../utils/formationSessionStore';
 import './SessionClose.css';
 
+export type SessionCloseDraft = {
+  juryDecisions: Record<string, 'valid' | 'invalid'>;
+  resultNotes: Record<string, string>;
+  showTrainerName: boolean;
+  endDeclaredAt?: string;
+  endMessage?: string;
+};
+
 type Props = {
   session: FormationSession;
-  mock: SessionCloseMock;
+  draft: SessionCloseDraft;
   onCancel: () => void;
   onRequestConfirm: () => void;
-  onMockChange: () => void;
+  onDraftChange: (next: SessionCloseDraft) => void;
 };
 
 const SessionClosePanel: React.FC<Props> = ({
   session,
-  mock: rawMock,
+  draft,
   onCancel,
   onRequestConfirm,
-  onMockChange,
+  onDraftChange,
 }) => {
-  const mock = useMemo(
-    () => ensureJuryDefaults(session, rawMock),
-    [session, rawMock]
-  );
   const mc = deliversMicrocert(session);
   const deliverWord = mc ? 'microcertifications' : 'preuves de formation';
   const participants = session.people.filter((p) => p.role === 'participant');
-  const { valid, invalid } = validInvalidCounts(mock);
+  const counts = useMemo(
+    () => validInvalidCounts(draft as SessionCloseMock),
+    [draft]
+  );
   const shown = participants.slice(0, 4);
   const more = Math.max(0, participants.length - shown.length);
   const hoursLabel = formatDurationHoursLabel(session.durationHours);
 
-  const refresh = () => onMockChange();
+  const setDecision = (id: string, next: 'valid' | 'invalid') => {
+    onDraftChange({
+      ...draft,
+      juryDecisions: { ...draft.juryDecisions, [id]: next },
+    });
+  };
+
+  const setNote = (id: string, value: string) => {
+    onDraftChange({
+      ...draft,
+      resultNotes: { ...draft.resultNotes, [id]: value },
+    });
+  };
 
   return (
     <div className="sc-overlay" role="dialog" aria-modal="true" aria-labelledby="sc-close-title">
@@ -52,14 +63,14 @@ const SessionClosePanel: React.FC<Props> = ({
           </h2>
           <p className="sc-sub">
             Fin de session déclarée
-            {mock.endDeclaredAt ? ` le ${formatDateShortFr(mock.endDeclaredAt)}` : ''} par{' '}
+            {draft.endDeclaredAt ? ` le ${formatDateShortFr(draft.endDeclaredAt)}` : ''} par{' '}
             {session.formateur.name}, formateur responsable
             {hoursLabel ? ` · ${hoursLabel}` : ''} · {participantCountLabel(participants.length)}
           </p>
 
-          {mock.endMessage && (
+          {draft.endMessage && (
             <div className="sc-msg">
-              Message du formateur : « {mock.endMessage} »
+              Message du formateur : « {draft.endMessage} »
             </div>
           )}
 
@@ -70,34 +81,24 @@ const SessionClosePanel: React.FC<Props> = ({
           </p>
 
           {shown.map((p) => {
-            const d = mock.juryDecisions[p.id] || 'valid';
+            const d = draft.juryDecisions[p.id] || 'valid';
             return (
               <div key={p.id} className="sc-prow">
                 <span className="n">{p.name}</span>
-                {mock.attachResults && d === 'valid' && (
+                {d === 'valid' && (
                   <span className="sc-note">
                     <input
                       aria-label={`Note ${p.name}`}
-                      value={mock.resultNotes[p.id] || ''}
+                      value={draft.resultNotes[p.id] || ''}
                       placeholder="—"
-                      onChange={(e) => {
-                        setResultNoteMock(session.id, p.id, e.target.value);
-                        refresh();
-                      }}
+                      onChange={(e) => setNote(p.id, e.target.value)}
                     />
                   </span>
                 )}
                 <button
                   type="button"
                   className={`sc-dec ${d === 'valid' ? 'ok' : 'no'}`}
-                  onClick={() => {
-                    setJuryDecisionMock(
-                      session.id,
-                      p.id,
-                      d === 'valid' ? 'invalid' : 'valid'
-                    );
-                    refresh();
-                  }}
+                  onClick={() => setDecision(p.id, d === 'valid' ? 'invalid' : 'valid')}
                 >
                   {d === 'valid' ? '✓ Validé(e)' : 'Non validé'}
                 </button>
@@ -107,59 +108,29 @@ const SessionClosePanel: React.FC<Props> = ({
           {more > 0 && <div className="sc-more">+ {more} participants</div>}
           <div className="sc-recap">
             <span>
-              <b>{valid}</b> validés
+              <b>{counts.valid}</b> validés
             </span>
             <span>
-              <b>{invalid}</b> non validés
+              <b>{counts.invalid}</b> non validés
             </span>
           </div>
 
           <div className="sc-q">
-            <div className="sc-line">
-              <span>Joindre les résultats de l&apos;évaluation aux {deliverWord} ?</span>
-              <span className="sc-seg">
-                <button
-                  type="button"
-                  className={mock.attachResults ? 'on' : ''}
-                  onClick={() => {
-                    setCloseOptionsMock(session.id, { attachResults: true });
-                    refresh();
-                  }}
-                >
-                  Oui
-                </button>
-                <button
-                  type="button"
-                  className={!mock.attachResults ? 'on' : ''}
-                  onClick={() => {
-                    setCloseOptionsMock(session.id, { attachResults: false });
-                    refresh();
-                  }}
-                >
-                  Non
-                </button>
-              </span>
-            </div>
+            {/* Patrick 12/11 — « joindre » caché ; les notes restent ci-dessus. */}
             <div className="sc-line">
               <span>Afficher le nom du formateur sur les {deliverWord}</span>
               <span className="sc-seg">
                 <button
                   type="button"
-                  className={mock.showTrainerName ? 'on' : ''}
-                  onClick={() => {
-                    setCloseOptionsMock(session.id, { showTrainerName: true });
-                    refresh();
-                  }}
+                  className={draft.showTrainerName ? 'on' : ''}
+                  onClick={() => onDraftChange({ ...draft, showTrainerName: true })}
                 >
                   Oui
                 </button>
                 <button
                   type="button"
-                  className={!mock.showTrainerName ? 'on' : ''}
-                  onClick={() => {
-                    setCloseOptionsMock(session.id, { showTrainerName: false });
-                    refresh();
-                  }}
+                  className={!draft.showTrainerName ? 'on' : ''}
+                  onClick={() => onDraftChange({ ...draft, showTrainerName: false })}
                 >
                   Non
                 </button>
@@ -179,7 +150,7 @@ const SessionClosePanel: React.FC<Props> = ({
               </>
             ) : (
               <>
-                sa <b>preuve de formation</b>, exportable vers Europass
+                sa <b>preuve de formation</b>
               </>
             )}
             , et à chaque participant son <b>certificat de réalisation</b>. Le participant non

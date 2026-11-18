@@ -103,7 +103,11 @@ const FormationOrgDashboard: React.FC = () => {
     if (!org) return [];
     return getFormationSessionsForOrg(org).filter((s) => {
       const cm = getSessionCloseMock(s.id);
-      return cm.endDeclared && !cm.closed;
+      const ended = s.status === 'ended' || cm.closed;
+      if (ended) return false;
+      if (s.canCloseProject === true) return true;
+      const endDeclared = Boolean(s.activeEndDeclaration) || cm.endDeclared;
+      return endDeclared;
     });
   }, [tick, closeTick, org]);
 

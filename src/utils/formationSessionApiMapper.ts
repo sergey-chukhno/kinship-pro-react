@@ -173,6 +173,22 @@ export function projectToFormationSession(
     imageDataUrl: p.main_picture_url || undefined,
     status: mapStatus(p.status, startDeclared),
     startDeclared,
+    canDeclareEnd:
+      p.can_declare_end === undefined ? undefined : Boolean(p.can_declare_end),
+    canCloseProject:
+      p.can_close_project === undefined ? undefined : Boolean(p.can_close_project),
+    activeEndDeclaration: p.active_end_declaration
+      ? {
+          declaredAt: p.active_end_declaration.declared_at
+            ? String(p.active_end_declaration.declared_at)
+            : undefined,
+          note: p.active_end_declaration.note ?? null,
+          declaredById:
+            p.active_end_declaration.declared_by_id != null
+              ? Number(p.active_end_declaration.declared_by_id)
+              : null,
+        }
+      : null,
     attendanceSurveyOptIn: false,
     people,
     seances: [

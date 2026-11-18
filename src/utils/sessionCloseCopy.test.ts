@@ -4,6 +4,7 @@ import {
   formatDateShortFr,
   formatDurationHoursLabel,
   formatProofCodeDisplay,
+  formationEndCloseErrorMessage,
   invalidParticipantSentence,
   printCertificatesLabel,
   proofLabel,
@@ -12,10 +13,21 @@ import {
 describe('sessionCloseCopy', () => {
   it('formats short and long French dates', () => {
     expect(formatDateShortFr('2026-10-17')).toBe('17/10/2026');
+    expect(formatDateShortFr('2026-10-17T14:30:00Z')).toBe('17/10/2026');
     expect(formatDateLongFr('2026-10-17')).toBe('17 octobre 2026');
     expect(formatDateRangeLongFr('2026-10-17', '2026-10-23')).toBe(
       'du 17 octobre 2026 au 23 octobre 2026'
     );
+  });
+
+  it('maps formation end/close API error codes', () => {
+    expect(formationEndCloseErrorMessage('already_declared', 'x')).toBe(
+      'La fin de session est déjà déclarée.'
+    );
+    expect(formationEndCloseErrorMessage('closure_forbidden_for_role', 'x')).toBe(
+      'Vous n’êtes pas autorisé à clôturer cette session.'
+    );
+    expect(formationEndCloseErrorMessage('unknown_code', 'fallback')).toBe('fallback');
   });
 
   it('adds heures unit', () => {
