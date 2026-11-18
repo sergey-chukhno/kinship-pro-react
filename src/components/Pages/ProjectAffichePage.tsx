@@ -4,13 +4,16 @@ import { getProjectById } from '../../api/Project';
 import { getProjectBadges } from '../../api/Badges';
 import { getCompanyGroup, getCompanyGroups, CompanyGroup } from '../../api/CompanyDashboard/Groups';
 import {
+  addPartnerCoResponsible,
   addProjectDocuments,
   addProjectMember,
+  CoResponsibleCandidate,
   preRegisterProjectParticipant,
   closeProject,
   createProjectTeam,
   deleteProjectDocument,
   fetchAllConfirmedPartnerships,
+  getCoResponsibleCandidates,
   getOrganizationMembers,
   getOrCreateProjectShareLink,
   getProjectDocuments,
@@ -318,6 +321,10 @@ const ProjectAffichePage: React.FC = () => {
   const [systemRoles, setSystemRoles] = useState<{ value: string }[]>([]);
   const [showPrepForm, setShowPrepForm] = useState(false);
   const [partnerQuery, setPartnerQuery] = useState('');
+  const [partnerStepPartnership, setPartnerStepPartnership] = useState<Partnership | null>(null);
+  const [coRespCandidates, setCoRespCandidates] = useState<CoResponsibleCandidate[]>([]);
+  const [coRespLoading, setCoRespLoading] = useState(false);
+  const [coRespSaving, setCoRespSaving] = useState(false);
   const [linkLabel, setLinkLabel] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
   const [docFile, setDocFile] = useState<File | null>(null);
@@ -814,13 +821,61 @@ const ProjectAffichePage: React.FC = () => {
     }
   };
 
-  const addPartner = async (partnership: Partnership) => {
+  const linkedPartnershipIds = useMemo(
+    () => new Set((apiProject?.partnership_ids || []).map((id: number) => Number(id))),
+    [apiProject?.partnership_ids]
+  );
+
+  const openPartnerCoResponsibleStep = async (partnership: Partnership) => {
     if (!projectId) return;
-    const existing = (apiProject?.partnership_ids || []).map((id: number) => Number(id));
-    const next = Array.from(new Set([...existing, Number(partnership.id)]));
-    await patchProject({ partnership_ids: next }, 'Partenaire ajouté.');
-    setAddPanel(null);
+    setPartnerStepPartnership(partnership);
+    setCoRespCandidates([]);
+    setCoRespLoading(true);
+    try {
+      const rows = await getCoResponsibleCandidates(Number(projectId), Number(partnership.id));
+      setCoRespCandidates(rows);
+    } catch (e: any) {
+      showError(
+        e?.response?.data?.message ||
+          'Impossible de charger les admins de cette organisation.'
+      );
+      setPartnerStepPartnership(null);
+    } finally {
+      setCoRespLoading(false);
+    }
+  };
+
+  const resetPartnerPanel = () => {
+    setPartnerStepPartnership(null);
+    setCoRespCandidates([]);
     setPartnerQuery('');
+    setAddPanel(null);
+  };
+
+  const addPartnerWithCoResponsible = async (userId: number) => {
+    if (!projectId || !partnerStepPartnership) return;
+    setCoRespSaving(true);
+    try {
+      const result = await addPartnerCoResponsible(Number(projectId), {
+        partnership_id: Number(partnerStepPartnership.id),
+        user_id: userId,
+      });
+      // loadProject unwraps axios payload; raw getProjectById() blanked équipe/partenaires.
+      await loadProject({ silent: true });
+      showSuccess(
+        result.data?.already_linked
+          ? 'Co-responsable ajouté.'
+          : 'Partenaire ajouté avec son co-responsable.'
+      );
+      resetPartnerPanel();
+    } catch (e: any) {
+      showError(
+        e?.response?.data?.message ||
+          'Impossible d’ajouter ce co-responsable.'
+      );
+    } finally {
+      setCoRespSaving(false);
+    }
   };
 
   const changeMemberRole = async (member: any, role: ProjectPersonRole) => {
@@ -1377,30 +1432,111 @@ const ProjectAffichePage: React.FC = () => {
                     <h5>Ajouter un partenaire</h5>
                     <button type="button" className="pa-radio on">
                       <span className="dot"><i /></span>
-                      <div><b>Partenariat administratif</b> — il co-porte : son co-responsable rejoint l’équipe</div>
+                      <div><b>Partenariat administratif</b> <small>— il co-porte : son co-responsable rejoint l’équipe</small></div>
                     </button>
                     <button type="button" className="pa-radio off" disabled>
                       <span className="dot" />
-                      <div>Partenariat élargi — bientôt</div>
+                      <div>Partenariat élargi <small>— bientôt</small></div>
                     </button>
-                    <div className="pa-klabel">l’organisation — vos 5 dernières, puis la recherche dès la première lettre</div>
-                    <input
-                      className="pa-search"
-                      value={partnerQuery}
-                      onChange={(e) => setPartnerQuery(e.target.value)}
-                      placeholder="🔍 Ou rechercher une organisation…"
-                    />
-                    {filteredPartnerships.map((p) => (
-                      <div key={p.id} className="pa-rline">
-                        <div className="pa-logo">{initialsOf(partnershipLabel(p, project.organization))}</div>
-                        <div>{partnershipLabel(p, project.organization)}</div>
-                        <button type="button" className="pa-addb" onClick={() => void addPartner(p)}>Ajouter</button>
-                      </div>
-                    ))}
-                    {filteredPartnerships.length === 0 && (
+                    <div className="pa-klabel"><span className="pa-n">1</span>L’organisation — vos 5 dernières, puis la recherche dès la première lettre</div>
+                    {!partnerStepPartnership && (
+                      <input
+                        className="pa-search"
+                        value={partnerQuery}
+                        onChange={(e) => setPartnerQuery(e.target.value)}
+                        placeholder="🔍 Ou rechercher une organisation…"
+                      />
+                    )}
+                    {filteredPartnerships.map((p) => {
+                      const label = partnershipLabel(p, project.organization);
+                      const already = linkedPartnershipIds.has(Number(p.id));
+                      const opened = partnerStepPartnership?.id === p.id;
+                      if (partnerStepPartnership && !opened) {
+                        return (
+                          <div key={p.id} className="pa-rline pa-rline-dim">
+                            <div className="pa-logo">{initialsOf(label)}</div>
+                            <div>
+                              {label}
+                              {already ? <small>Déjà partenaire du projet</small> : null}
+                            </div>
+                            <button type="button" className="pa-addb" disabled>
+                              {already ? 'Ajouter un co-responsable' : 'Choisir son co-responsable'}
+                            </button>
+                          </div>
+                        );
+                      }
+                      if (opened) {
+                        return (
+                          <div key={p.id} className="pa-partner-open">
+                            <div className="pa-rline pa-partner-open-head">
+                              <div className="pa-logo">{initialsOf(label)}</div>
+                              <div><b>{label}</b></div>
+                              <button
+                                type="button"
+                                className="pa-link"
+                                onClick={() => {
+                                  setPartnerStepPartnership(null);
+                                  setCoRespCandidates([]);
+                                }}
+                              >
+                                Changer
+                              </button>
+                            </div>
+                            <div className="pa-partner-open-sub">
+                              <div className="pa-klabel"><span className="pa-n">2</span>Son co-responsable — parmi ses admins et superadmins</div>
+                              {coRespLoading && <div className="pa-empty-state">Chargement…</div>}
+                              {!coRespLoading && coRespCandidates.length === 0 && (
+                                <div className="pa-empty-state">Aucun admin ou superadmin trouvé pour cette organisation.</div>
+                              )}
+                              {coRespCandidates.map((c) => (
+                                <div key={c.id} className="pa-rline">
+                                  <div className="pa-av">{initialsOf(c.full_name)}</div>
+                                  <div>
+                                    {c.full_name}
+                                    <small>
+                                      {[c.job, c.org_role === 'superadmin' ? 'Superadmin' : 'Admin']
+                                        .filter(Boolean)
+                                        .join(' · ')}
+                                    </small>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    className="pa-addb pa-addb-primary"
+                                    disabled={coRespSaving}
+                                    onClick={() => void addPartnerWithCoResponsible(c.id)}
+                                  >
+                                    Ajouter
+                                  </button>
+                                </div>
+                              ))}
+                              <div className="pa-note">
+                                Le co-responsable ajoute des membres de son organisation uniquement et atteste des compétences.
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+                      return (
+                        <div key={p.id} className="pa-rline">
+                          <div className="pa-logo">{initialsOf(label)}</div>
+                          <div>
+                            {label}
+                            {already ? <small>Déjà partenaire du projet</small> : null}
+                          </div>
+                          <button
+                            type="button"
+                            className="pa-addb"
+                            onClick={() => void openPartnerCoResponsibleStep(p)}
+                          >
+                            {already ? 'Ajouter un co-responsable' : 'Choisir son co-responsable'}
+                          </button>
+                        </div>
+                      );
+                    })}
+                    {!partnerStepPartnership && filteredPartnerships.length === 0 && (
                       <div className="pa-empty-state">Aucune organisation correspondante.</div>
                     )}
-                    <div className="pa-pfoot">Après l’ajout, le panneau se replie — l’acte est unitaire. Un financeur n’est pas un partenaire.</div>
+                    <div className="pa-pfoot">Après l’ajout, le panneau se replie. Un financeur n’est pas un partenaire.</div>
                   </div>
                 )}
 
