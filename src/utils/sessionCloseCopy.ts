@@ -113,3 +113,20 @@ export function formatProofCodeDisplay(code?: string): string {
   if (!code) return 'PF·····';
   return code.replace(/-/g, '·');
 }
+
+/** Short fingerprint for birth overlay: « 9f3a71…d8b84c · vérifiable ». */
+export function formatProofFingerprint(seed: string): string {
+  const raw = String(seed || 'proof');
+  let h = 2166136261;
+  for (let i = 0; i < raw.length; i += 1) {
+    h ^= raw.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  const hex = (Math.abs(h) >>> 0).toString(16).padStart(8, '0');
+  let h2 = 0;
+  for (let i = raw.length - 1; i >= 0; i -= 1) {
+    h2 = (h2 * 31 + raw.charCodeAt(i)) >>> 0;
+  }
+  const hex2 = h2.toString(16).padStart(8, '0');
+  return `${hex.slice(0, 6)}…${hex2.slice(-6)} · vérifiable`;
+}

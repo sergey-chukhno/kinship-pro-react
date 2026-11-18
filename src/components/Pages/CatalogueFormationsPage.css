@@ -292,6 +292,37 @@
   padding: 0;
 }
 
+.catf-sess-panel {
+  flex: 1 1 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.catf-sess-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--catf-border);
+  border-radius: 8px;
+  background: #fff;
+  padding: 7px 9px;
+  font-size: 11px;
+  color: var(--catf-ink, #1c1b18);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.catf-sess-row-st {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--catf-petrol);
+}
+
 .catf-muted-sess {
   color: var(--catf-muted);
   font-size: 11.5px;

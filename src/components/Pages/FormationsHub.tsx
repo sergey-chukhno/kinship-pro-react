@@ -612,8 +612,8 @@ const FormationsHub: React.FC = () => {
             {MOCK_OF_ORG.name} · {MOCK_OF_ORG.kind}
           </p>
           <p className="formations-hub-qualiopi">
-            {MOCK_OF_ORG.qualiopiLabel} · valide jusqu’au {MOCK_OF_ORG.qualiopiValidUntil} ·
-            dernière vérification : {MOCK_OF_ORG.lastVerified}
+            {MOCK_OF_ORG.qualiopiLabel} · Certification valide jusqu’au{' '}
+            {MOCK_OF_ORG.qualiopiValidUntil} · dernière vérification : {MOCK_OF_ORG.lastVerified}
           </p>
         </div>
         {canCreateFormation() && (

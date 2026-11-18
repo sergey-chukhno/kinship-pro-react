@@ -26,7 +26,7 @@ const CloseProjectBirthOverlay: React.FC<CloseProjectBirthOverlayProps> = ({
           </svg>
           <div>
             <div className="pp-birth-kname">Kinship</div>
-            <div className="pp-birth-ktype">Preuve Projet®</div>
+            <div className="pp-birth-ktype">Preuve Projet</div>
           </div>
         </div>
       </div>

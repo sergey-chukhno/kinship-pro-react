@@ -76,7 +76,7 @@ const SuperAdminOfQueuePage: React.FC = () => {
             <tr>
               <th>Organisme</th>
               <th>NDA</th>
-              <th>Qualiopi</th>
+              <th>Certification</th>
               <th>OPCO réf.</th>
               <th>Soumis le</th>
               <th>Délai</th>
@@ -180,7 +180,7 @@ const SuperAdminOfQueuePage: React.FC = () => {
               [
                 ['siret', 'SIRET actif', 'INSEE / annuaire-entreprises'],
                 ['nda', 'NDA', 'liste publique des OF — DGEFP'],
-                ['qualiopi', `Qualiopi${open.qualiopiUntil ? ` jusqu’au ${open.qualiopiUntil}` : ''}`, 'France Compétences / annuaire officiel'],
+                ['qualiopi', `Certification${open.qualiopiUntil ? ` jusqu’au ${open.qualiopiUntil}` : ''}`, 'France Compétences / annuaire officiel'],
               ] as const
             ).map(([key, label, source]) => (
               <button
@@ -214,7 +214,7 @@ const SuperAdminOfQueuePage: React.FC = () => {
                   <select value={field} onChange={(e) => setField(e.target.value as OfRejectField)}>
                     <option value="nda">NDA</option>
                     <option value="siret">SIRET</option>
-                    <option value="qualiopi">Qualiopi</option>
+                    <option value="qualiopi">Certification</option>
                   </select>
                 </label>
                 <div className="saq-refuse-actions">

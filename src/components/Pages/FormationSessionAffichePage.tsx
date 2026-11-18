@@ -212,6 +212,9 @@ const FormationSessionAffichePage: React.FC = () => {
   const participants = session.people.filter((p) => p.role === 'participant');
   const team = session.people.filter((p) => p.role === 'formateur' || p.role === 'intervenant');
   const partners = closeMock.partners;
+  const partnerLabels = partners
+    .map((p) => (p.organization || p.name || '').trim())
+    .filter(Boolean);
   const modalityLabel =
     session.modality === 'presentiel'
       ? 'Présentiel'
@@ -374,9 +377,7 @@ const FormationSessionAffichePage: React.FC = () => {
           {session.description ? <p className="fa-desc">{session.description}</p> : null}
           <p className="fsa-meta-line">
             {`Formateur responsable ${session.formateur.name} · ${participantCountLabel(participants.length)} · ${session.seances.length} séance${session.seances.length > 1 ? 's' : ''}${
-              partners.length
-                ? ` · avec ${partners.map((p) => p.organization).join(', ')}`
-                : ''
+              partnerLabels.length ? ` · avec ${partnerLabels.join(', ')}` : ''
             }`}
           </p>
         </div>
@@ -411,13 +412,16 @@ const FormationSessionAffichePage: React.FC = () => {
                 : ''}
             </h4>
             <div className="n">
-              {proofLabel(valid, false)} délivrée{valid > 1 ? 's' : ''} ·{' '}
-              {closeMock.certificates.length} certificat
-              {closeMock.certificates.length > 1 ? 's' : ''} de réalisation
-              {partners.some((p) => p.coAttestedAt) ? ' · co-attestée' : ''}
-            </div>
-            <div className="n" style={{ marginTop: 6 }}>
               {[
+                valid > 0
+                  ? `${proofLabel(valid, false)} délivrée${valid > 1 ? 's' : ''}`
+                  : null,
+                closeMock.certificates.length > 0
+                  ? `${closeMock.certificates.length} certificat${
+                      closeMock.certificates.length > 1 ? 's' : ''
+                    } de réalisation`
+                  : null,
+                partners.some((p) => p.coAttestedAt) ? 'co-attestée' : null,
                 formatDurationHoursLabel(session.durationHours),
                 `${session.seances.length || 1} séance${(session.seances.length || 1) > 1 ? 's' : ''} tenue${(session.seances.length || 1) > 1 ? 's' : ''}`,
                 'présences restituées par séance',
@@ -431,7 +435,7 @@ const FormationSessionAffichePage: React.FC = () => {
                 Exporter PDF
               </button>
               <button type="button" className="sc-btn s sm">
-                Partager avec DGEFP / Qualiopi
+                Partager pour un contrôle ou un audit
               </button>
               <button type="button" className="sc-btn s sm">
                 Vérification publique
@@ -451,30 +455,32 @@ const FormationSessionAffichePage: React.FC = () => {
               consultation en ligne.
             </div>
           </div>
-          <div className="sc-blk">
-            <h4>
-              Certificats de réalisation — {closeMock.certificates.length} généré
-              {closeMock.certificates.length > 1 ? 's' : ''}
-            </h4>
-            <div className="n">
-              {closeMock.certificates.filter((c) => c.status === 'sent').length} envoyé
-              {closeMock.certificates.filter((c) => c.status === 'sent').length > 1 ? 's' : ''} par
-              e-mail
-              {failedCerts > 0
-                ? ` · ${failedCerts} à imprimer (e-mail en échec)`
-                : ''}
-            </div>
-            <div className="sc-btns">
-              <button type="button" className="sc-btn p sm" onClick={() => setCertOpen(true)}>
-                Voir les certificats
-              </button>
-              {failedCerts > 0 && (
-                <button type="button" className="sc-btn am sm" onClick={() => setCertOpen(true)}>
-                  {printCertificatesLabel(failedCerts)}
+          {closeMock.certificates.length > 0 && (
+            <div className="sc-blk">
+              <h4>
+                Certificats de réalisation — {closeMock.certificates.length} généré
+                {closeMock.certificates.length > 1 ? 's' : ''}
+              </h4>
+              <div className="n">
+                {closeMock.certificates.filter((c) => c.status === 'sent').length} envoyé
+                {closeMock.certificates.filter((c) => c.status === 'sent').length > 1 ? 's' : ''} par
+                e-mail
+                {failedCerts > 0
+                  ? ` · ${failedCerts} à imprimer (e-mail en échec)`
+                  : ''}
+              </div>
+              <div className="sc-btns">
+                <button type="button" className="sc-btn p sm" onClick={() => setCertOpen(true)}>
+                  Voir les certificats
                 </button>
-              )}
+                {failedCerts > 0 && (
+                  <button type="button" className="sc-btn am sm" onClick={() => setCertOpen(true)}>
+                    {printCertificatesLabel(failedCerts)}
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -783,6 +789,10 @@ const FormationSessionAffichePage: React.FC = () => {
         mock={getSessionCloseMock(session.id)}
         open={birthOpen}
         onContinue={() => {
+          setBirthOpen(false);
+          setCloseTick((n) => n + 1);
+        }}
+        onOpenProof={() => {
           setBirthOpen(false);
           setCloseTick((n) => n + 1);
         }}
