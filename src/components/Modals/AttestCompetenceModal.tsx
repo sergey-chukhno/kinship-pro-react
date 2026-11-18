@@ -34,6 +34,10 @@ import {
 import { ProofCardCompact } from '../Proof/ProofCardCompact';
 import { readAttestLastSeries, writeAttestLastSeries } from '../../utils/attestLastSeries';
 import {
+  participantChipName as chipName,
+  participantMatchesSearch,
+} from '../../utils/participantSearchMatch';
+import {
   getCpsAxeColor,
   getCpsLocalBadgeImage,
   isCompetencesPsychosocialesSeries,
@@ -174,12 +178,6 @@ const CATALOGUE_MARKERS = [
 ];
 
 const PARTICIPANTS_INITIAL_COUNT = 8;
-
-const chipName = (name: string): string => {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) return parts[0];
-  return `${parts[0]} ${parts[parts.length - 1][0]}.`;
-};
 
 // « Léa M., Amir B. et Chloé D. » — recap groupé du constat (écran 5, mode groupe).
 const joinFr = (names: string[]): string => {
@@ -864,15 +862,21 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
     [attestParticipants, alreadyAttestedReceiverIds]
   );
 
-  const filteredParticipants = useMemo(() => {
-    const term = participantsSearchTerm.trim().toLowerCase();
-    if (!term) return selectableParticipants;
-    return selectableParticipants.filter(
-      (p) =>
-        (p.name || '').toLowerCase().includes(term) ||
-        (p.organization || '').toLowerCase().includes(term)
-    );
-  }, [selectableParticipants, participantsSearchTerm]);
+  const filteredParticipants = useMemo(
+    () =>
+      selectableParticipants.filter((p) =>
+        participantMatchesSearch(p.name || '', participantsSearchTerm)
+      ),
+    [selectableParticipants, participantsSearchTerm]
+  );
+
+  const filteredAlreadyAttestedParticipants = useMemo(
+    () =>
+      alreadyAttestedParticipants.filter((p) =>
+        participantMatchesSearch(p.name || '', participantsSearchTerm)
+      ),
+    [alreadyAttestedParticipants, participantsSearchTerm]
+  );
 
   const selectAllParticipants = () => {
     setSelectedParticipants(filteredParticipants.map((p) => p.memberId));
@@ -1849,11 +1853,11 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
                   {filteredParticipants.length - PARTICIPANTS_INITIAL_COUNT} autres participants…
                 </button>
               )}
-              {alreadyAttestedParticipants.length > 0 && (
+              {filteredAlreadyAttestedParticipants.length > 0 && (
                 <>
                   <div className="att-slab att-deja-atteste-label">Déjà attesté</div>
                   <div className="att-participants-grid">
-                    {alreadyAttestedParticipants.map((p) => (
+                    {filteredAlreadyAttestedParticipants.map((p) => (
                       <div
                         key={`frozen-${p.memberId}`}
                         className="att-participant-row att-participant-frozen"
