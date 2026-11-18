@@ -158,7 +158,7 @@ const FunderFollowView: React.FC<FunderFollowViewProps> = ({
       </p>
       <div className="fv-chips">
         <span className="fv-chip status">{data.statusLabel}</span>
-        {data.qualiopi && <span className="fv-chip trust">◆ Qualiopi</span>}
+        {data.qualiopi && <span className="fv-chip trust">◆ Organisme de formation certifié</span>}
         {data.attendanceSurvey && (
           <span className="fv-chip survey">🛡 Vérification d&apos;assiduité active</span>
         )}

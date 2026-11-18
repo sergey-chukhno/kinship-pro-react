@@ -5,6 +5,7 @@ import {
   formatDateShortFr,
   formatDurationHoursLabel,
   formatProofCodeDisplay,
+  formatProofFingerprint,
 } from '../../utils/sessionCloseCopy';
 import './SessionClose.css';
 
@@ -13,14 +14,23 @@ type Props = {
   mock: SessionCloseMock;
   open: boolean;
   onContinue: () => void;
+  /** Close overlay and reveal TERMINÉE preuve panel on the affiche. */
+  onOpenProof?: () => void;
 };
 
-const SessionProofBirthOverlay: React.FC<Props> = ({ session, mock, open, onContinue }) => {
+const SessionProofBirthOverlay: React.FC<Props> = ({
+  session,
+  mock,
+  open,
+  onContinue,
+  onOpenProof,
+}) => {
   if (!open) return null;
 
   const partner = mock.partners.find((p) => p.coAttestedAt);
   const jury = session.people.find((p) => p.role === 'jury');
   const hours = formatDurationHoursLabel(session.durationHours);
+  const fingerprint = formatProofFingerprint(mock.proofCode || session.id);
 
   return (
     <div className="sc-overlay" role="dialog" aria-modal="true" aria-labelledby="sc-birth-title">
@@ -62,17 +72,24 @@ const SessionProofBirthOverlay: React.FC<Props> = ({ session, mock, open, onCont
                   </>
                 )}
               </div>
+              <div className="sc-pf-foot">
+                <span>Partager cette preuve</span>
+                <span>{fingerprint}</span>
+              </div>
             </div>
           </div>
-          <div className="sc-foot">
+          <div className="sc-foot sc-foot-split">
+            <button
+              type="button"
+              className="sc-btn s sm"
+              onClick={() => (onOpenProof ? onOpenProof() : onContinue())}
+            >
+              Ouvrir la preuve
+            </button>
             <button type="button" className="sc-btn p" onClick={onContinue}>
               Continuer
             </button>
           </div>
-          <p className="sc-hint">
-            En coulisses : le rapport part au financeur ; les certificats de réalisation partent
-            aux participants.
-          </p>
         </div>
       </div>
     </div>

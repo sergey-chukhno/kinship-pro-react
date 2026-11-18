@@ -110,7 +110,7 @@ const PreuveFormationPage: React.FC = () => {
       <article className="rof-doc">
         <header className="rof-head">
           <div>
-            <div className="rof-lib">Preuve Formation® réglementaire</div>
+            <div className="rof-lib">Preuve Formation réglementaire</div>
             <div className="rof-sub">{formation.title}</div>
             <div className="rof-sub">
               {MOCK_OF_ORG.name} · {MOCK_OF_ORG.qualiopiLabel} · {dateLabel}
@@ -336,7 +336,7 @@ const PreuveFormationPage: React.FC = () => {
               </div>
               <div className="rof-prow static">
                 <div>
-                  <b>Partager avec DGEFP / Qualiopi</b>
+                  <b>Partager pour un contrôle ou un audit</b>
                   <div className="muted">
                     lien révocable · borné à l&apos;échéance d&apos;audit — art. R. 6332-26 C. trav.
                   </div>
@@ -369,7 +369,7 @@ const PreuveFormationPage: React.FC = () => {
 
       {shareOpen && (
         <div className="rof-panel">
-          <h2>Partager la Preuve Formation®</h2>
+          <h2>Partager la Preuve Formation</h2>
           <p className="muted">
             {formation.title} · <code>{proofNumber}</code>
           </p>

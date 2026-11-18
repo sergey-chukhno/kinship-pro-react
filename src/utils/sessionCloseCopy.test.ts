@@ -4,6 +4,7 @@ import {
   formatDateShortFr,
   formatDurationHoursLabel,
   formatProofCodeDisplay,
+  formatProofFingerprint,
   formationEndCloseErrorMessage,
   invalidParticipantSentence,
   printCertificatesLabel,
@@ -48,5 +49,10 @@ describe('sessionCloseCopy', () => {
   it('normalizes proof code middots', () => {
     expect(formatProofCodeDisplay('PF-2026-FR-659643QM')).toBe('PF·2026·FR·659643QM');
     expect(formatProofCodeDisplay('PF·2026·FR·659643QM')).toBe('PF·2026·FR·659643QM');
+  });
+
+  it('formats a short proof fingerprint', () => {
+    const fp = formatProofFingerprint('PF-2026-FR-61QM');
+    expect(fp).toMatch(/^[0-9a-f]{6}…[0-9a-f]{6} · vérifiable$/);
   });
 });

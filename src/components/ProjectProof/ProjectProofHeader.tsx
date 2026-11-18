@@ -32,7 +32,7 @@ export const ProjectProofHeader: React.FC<ProjectProofHeaderProps> = ({
     <div className="pp-header">
       {showPorteurBar && (
         <div className="porteur-bar">
-          <span className="porteur-label">Vous consultez votre Preuve Projet®</span>
+          <span className="porteur-label">Vous consultez votre Preuve Projet</span>
           <div className="porteur-toggle">
             <span>Anonyme</span>
             <button
@@ -71,7 +71,7 @@ export const ProjectProofHeader: React.FC<ProjectProofHeaderProps> = ({
               Kinship
             </div>
             <div className="pp-ktype" style={{ color: levelStyle.kinshipTypeColor }}>
-              Preuve Projet®
+              Preuve Projet
             </div>
           </div>
         </div>
@@ -115,7 +115,7 @@ export const ProjectProofHeader: React.FC<ProjectProofHeaderProps> = ({
 
       <div className="pp-status">
         <div className="pp-dot" />
-        <span className="pp-status-text">Preuve Projet® active</span>
+        <span className="pp-status-text">Preuve Projet active</span>
         <span className="pp-status-text pp-status-date">
           Calculée le {proof.calculatedDate}
         </span>

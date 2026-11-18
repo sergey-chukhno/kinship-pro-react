@@ -122,7 +122,8 @@ const OfActivationPage: React.FC = () => {
             <span className={dossier.checks.qualiopi ? 'ok' : 'off'}>
               {dossier.checks.qualiopi ? '✓' : '○'}
             </span>
-            Qualiopi{dossier.qualiopiUntil ? ` valide jusqu’au ${dossier.qualiopiUntil}` : ''}
+            Certification
+            {dossier.qualiopiUntil ? ` valide jusqu’au ${dossier.qualiopiUntil}` : ''}
           </div>
           <div className="ofa-call">
             📞 <b>Un conseiller Kinship va vous appeler</b> pour finaliser l’activation — c’est aussi
@@ -181,7 +182,7 @@ const OfActivationPage: React.FC = () => {
           </label>
 
           <label className="ofa-fld">
-            <span>Certification Qualiopi — si vous l’avez</span>
+            <span>Certification — si vous l’avez</span>
             <input
               className="ofa-inp"
               value={dossier.qualiopiUntil}
@@ -207,7 +208,7 @@ const OfActivationPage: React.FC = () => {
               </label>
             </div>
             <small>
-              Le certificat se dépose ici (PDF). Pas de Qualiopi ? Déposez vos habilitations officielles
+              Le certificat se dépose ici (PDF). Pas de certification ? Déposez vos habilitations officielles
               (RNCP, RS…) ou vos documents justificatifs — un conseiller Kinship vérifiera avec vous.
             </small>
           </label>

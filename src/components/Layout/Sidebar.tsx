@@ -363,20 +363,40 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
                       </>
                     )}
                     {canCreateFormation() ? (
-                      <Menu.Item>
-                        {({ active }) => (
-                          <button
-                            type="button"
-                            className={`sidebar-quick-action-item ${active ? 'active' : ''}`}
-                            onClick={() => {
-                              navigate('/create?type=formation');
-                              onPageChange('create');
-                            }}
-                          >
-                            Formation
-                          </button>
-                        )}
-                      </Menu.Item>
+                      <>
+                        <Menu.Item>
+                          {({ active }) => (
+                            <button
+                              type="button"
+                              className={`sidebar-quick-action-item sidebar-quick-action-stack ${active ? 'active' : ''}`}
+                              onClick={() => {
+                                navigate('/create?type=formation');
+                                onPageChange('create');
+                              }}
+                            >
+                              <span>Fiche de formation</span>
+                              <span className="sidebar-quick-action-sub">
+                                Votre fiche au catalogue — les sessions s&apos;ouvrent ensuite depuis
+                                le catalogue
+                              </span>
+                            </button>
+                          )}
+                        </Menu.Item>
+                        <Menu.Item>
+                          {({ active }) => (
+                            <button
+                              type="button"
+                              className={`sidebar-quick-action-item ${active ? 'active' : ''}`}
+                              onClick={() => {
+                                onPageChange('catalogue-formations');
+                                navigate('/catalogue-formations');
+                              }}
+                            >
+                              Session de formation
+                            </button>
+                          )}
+                        </Menu.Item>
+                      </>
                     ) : (
                       <Menu.Item disabled>
                         {({ active }) => (
@@ -385,7 +405,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
                             disabled
                             className={`sidebar-quick-action-item is-disabled ${active ? 'active' : ''}`}
                           >
-                            Formation
+                            Fiche de formation
                             <span className="sidebar-quick-action-soon">Bientôt</span>
                           </button>
                         )}

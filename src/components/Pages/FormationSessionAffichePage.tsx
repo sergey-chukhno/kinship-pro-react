@@ -411,13 +411,16 @@ const FormationSessionAffichePage: React.FC = () => {
                 : ''}
             </h4>
             <div className="n">
-              {proofLabel(valid, false)} délivrée{valid > 1 ? 's' : ''} ·{' '}
-              {closeMock.certificates.length} certificat
-              {closeMock.certificates.length > 1 ? 's' : ''} de réalisation
-              {partners.some((p) => p.coAttestedAt) ? ' · co-attestée' : ''}
-            </div>
-            <div className="n" style={{ marginTop: 6 }}>
               {[
+                valid > 0
+                  ? `${proofLabel(valid, false)} délivrée${valid > 1 ? 's' : ''}`
+                  : null,
+                closeMock.certificates.length > 0
+                  ? `${closeMock.certificates.length} certificat${
+                      closeMock.certificates.length > 1 ? 's' : ''
+                    } de réalisation`
+                  : null,
+                partners.some((p) => p.coAttestedAt) ? 'co-attestée' : null,
                 formatDurationHoursLabel(session.durationHours),
                 `${session.seances.length || 1} séance${(session.seances.length || 1) > 1 ? 's' : ''} tenue${(session.seances.length || 1) > 1 ? 's' : ''}`,
                 'présences restituées par séance',
@@ -431,7 +434,7 @@ const FormationSessionAffichePage: React.FC = () => {
                 Exporter PDF
               </button>
               <button type="button" className="sc-btn s sm">
-                Partager avec DGEFP / Qualiopi
+                Partager pour un contrôle ou un audit
               </button>
               <button type="button" className="sc-btn s sm">
                 Vérification publique
@@ -783,6 +786,10 @@ const FormationSessionAffichePage: React.FC = () => {
         mock={getSessionCloseMock(session.id)}
         open={birthOpen}
         onContinue={() => {
+          setBirthOpen(false);
+          setCloseTick((n) => n + 1);
+        }}
+        onOpenProof={() => {
           setBirthOpen(false);
           setCloseTick((n) => n + 1);
         }}
