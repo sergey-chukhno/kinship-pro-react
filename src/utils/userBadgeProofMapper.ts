@@ -1,6 +1,7 @@
 import { ProofData, TrustLevelKey } from '../types/proof';
 import { resolveQualityFrameworkLabel } from './qualityFrameworkLabel';
 import { displayCivilLabel, displayPersonName } from './civilDataErased';
+import { formatRetentionExpiry } from './formatRetentionExpiry';
 
 const TRUST_LEVELS: TrustLevelKey[] = [
   'INSTITUTIONAL',
@@ -177,7 +178,9 @@ export function mapUserBadgeToProofData(userBadge: Record<string, unknown>): Pro
     senderCommentLang: null,
     payloadHash: '—',
     hashVersion: 'sha256-v1',
-    retentionExpiry: awardedDate,
+    retentionExpiry: formatRetentionExpiry(
+      (userBadge.retention_expiry_at as string | null | undefined) ?? null
+    ),
     ppProofNumber: null,
     shareUrl: shareToken ? `mykinship.fr/pb/${shareToken}` : 'mykinship.fr/pb',
     showRightsLink: false,
