@@ -884,11 +884,8 @@ const ProjectSpacePage: React.FC = () => {
         partnership_id: Number(partnerStepPartnership.id),
         user_id: userId,
       });
-      const raw = await getProjectById(Number(projectId));
-      setApiProject(raw);
-      setProject(mapApiProjectToFrontendProject(raw, state.showingPageType, userRef.current));
-      const mem = await getProjectMembers(Number(projectId));
-      setMembers(Array.isArray(mem) ? mem : []);
+      // loadProject unwraps axios payload; raw getProjectById() blanked équipe/partenaires.
+      await loadProject({ silent: true });
       showSuccess(
         result.data?.already_linked
           ? 'Co-responsable ajouté.'
