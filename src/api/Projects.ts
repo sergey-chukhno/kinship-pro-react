@@ -1912,6 +1912,42 @@ export const addProjectMembersBulk = async (
     return response.data;
 };
 
+/** Affiche / Espace — admins & superadmins of the partner org for co-responsable picker. */
+export type CoResponsibleCandidate = {
+    id: number;
+    first_name?: string | null;
+    last_name?: string | null;
+    full_name: string;
+    job?: string | null;
+    org_role: string;
+    avatar_url?: string | null;
+};
+
+export const getCoResponsibleCandidates = async (
+    projectId: number,
+    partnershipId: number
+): Promise<CoResponsibleCandidate[]> => {
+    const response = await apiClient.get(
+        `/api/v1/projects/${projectId}/partnerships/${partnershipId}/co_responsible_candidates`
+    );
+    return response.data?.data || [];
+};
+
+/** Atomic: link administratif partnership + add co_owner (Patrick UX V0.1). */
+export const addPartnerCoResponsible = async (
+    projectId: number,
+    payload: { partnership_id: number; user_id: number }
+): Promise<{
+    message: string;
+    data: { partnership_id: number; already_linked: boolean; member: any };
+}> => {
+    const response = await apiClient.post(
+        `/api/v1/projects/${projectId}/partner_co_responsibles`,
+        payload
+    );
+    return response.data;
+};
+
 export const preRegisterProjectParticipant = async (
     projectId: number,
     payload: {
