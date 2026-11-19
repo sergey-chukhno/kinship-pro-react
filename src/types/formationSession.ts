@@ -64,6 +64,8 @@ export interface FormationSession {
     note?: string | null;
     declaredById?: number | null;
   } | null;
+  /** BE ProjectProofNumber — null until close; never invent on FE. */
+  proofNumber?: string | null;
   attendanceSurveyOptIn: boolean;
   people: FormationSessionPerson[];
   seances: FormationSessionSeance[];

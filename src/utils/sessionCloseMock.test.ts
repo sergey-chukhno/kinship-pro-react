@@ -49,7 +49,7 @@ describe('sessionCloseMock', () => {
     setJuryDecisionMock('76', 'p2', 'invalid');
     mock = closeAndDeliverMock(session());
     expect(mock.closed).toBe(true);
-    expect(mock.proofCode).toMatch(/^PF·/);
+    expect(mock.proofCode).toBeUndefined();
     expect(mock.certificates).toHaveLength(2);
     const counts = validInvalidCounts(mock);
     expect(counts.invalid).toBe(1);

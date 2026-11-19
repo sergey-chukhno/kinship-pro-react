@@ -1,4 +1,5 @@
 import {
+  extractProofNumber,
   financementFromBe,
   financementToBe,
   modalityFromBe,
@@ -119,5 +120,52 @@ describe('formationSessionApiMapper', () => {
       pending: true,
     });
     expect(session.people.filter((p) => p.role === 'formateur')).toHaveLength(1);
+  });
+
+  it('extracts proof_number flat or nested; never invents', () => {
+    expect(extractProofNumber({})).toBeNull();
+    expect(extractProofNumber({ proof_number: null })).toBeNull();
+    expect(extractProofNumber({ proof_number: 'PF·2026·FR·A1B2C3D4' })).toBe(
+      'PF·2026·FR·A1B2C3D4'
+    );
+    expect(
+      extractProofNumber({ project_proof: { proof_number: 'PF·2026·FR·NESTED01' } })
+    ).toBe('PF·2026·FR·NESTED01');
+    expect(
+      extractProofNumber({
+        proof_number: 'PF·2026·FR·FLAT0001',
+        project_proof: { proof_number: 'PF·2026·FR·NESTED01' },
+      })
+    ).toBe('PF·2026·FR·FLAT0001');
+  });
+
+  it('maps proofNumber onto FormationSession from close/GET payload', () => {
+    const withProof = projectToFormationSession({
+      id: 94,
+      title: 'Clôturée',
+      status: 'ended',
+      start_date: '2026-10-01',
+      end_date: '2026-10-10',
+      formation_catalog_entry_id: 'e1',
+      responsible_trainer_id: 2,
+      start_declared_at: '2026-10-01T10:00:00Z',
+      proof_number: 'PF·2026·FR·8CHARRND',
+      co_owners: [],
+    });
+    expect(withProof.proofNumber).toBe('PF·2026·FR·8CHARRND');
+    expect(withProof.status).toBe('ended');
+
+    const without = projectToFormationSession({
+      id: 95,
+      title: 'Sans preuve',
+      status: 'ended',
+      start_date: '2026-10-01',
+      end_date: '2026-10-10',
+      formation_catalog_entry_id: 'e1',
+      responsible_trainer_id: 2,
+      start_declared_at: '2026-10-01T10:00:00Z',
+      co_owners: [],
+    });
+    expect(without.proofNumber).toBeNull();
   });
 });
