@@ -94,6 +94,17 @@ describe('formationSessionStore', () => {
     expect(sessionHeroStatus(after)).toBe('in_progress');
   });
 
+  it('treats API status ended as TERMINÉE even when endDate is in the future', () => {
+    expect(
+      sessionHeroStatus({
+        startDeclared: true,
+        startDate: '2026-11-19',
+        endDate: '2099-12-01',
+        status: 'ended',
+      })
+    ).toBe('ended');
+  });
+
   it('labels participant counts in French singular/plural', () => {
     expect(participantCountLabel(0)).toBe('0 participant');
     expect(participantCountLabel(1)).toBe('1 participant');
