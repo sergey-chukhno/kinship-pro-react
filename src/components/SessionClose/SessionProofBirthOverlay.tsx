@@ -30,7 +30,9 @@ const SessionProofBirthOverlay: React.FC<Props> = ({
   const partner = mock.partners.find((p) => p.coAttestedAt);
   const jury = session.people.find((p) => p.role === 'jury');
   const hours = formatDurationHoursLabel(session.durationHours);
-  const fingerprint = formatProofFingerprint(mock.proofCode || session.id);
+  const proofNumber = session.proofNumber?.trim() || '';
+  if (!proofNumber) return null;
+  const fingerprint = formatProofFingerprint(proofNumber);
 
   return (
     <div className="sc-overlay" role="dialog" aria-modal="true" aria-labelledby="sc-birth-title">
@@ -46,7 +48,7 @@ const SessionProofBirthOverlay: React.FC<Props> = ({
           <div className="sc-pf">
             <div className="sc-pf-h">
               <span>KINSHIP · PREUVE FORMATION</span>
-              <span>{formatProofCodeDisplay(mock.proofCode)}</span>
+              <span>{formatProofCodeDisplay(proofNumber)}</span>
             </div>
             <div className="sc-pf-b">
               <div className="sc-pf-1">{session.title}</div>

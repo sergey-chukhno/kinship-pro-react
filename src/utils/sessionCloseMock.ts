@@ -158,12 +158,6 @@ export function setResultNoteMock(
   });
 }
 
-function proofCodeFor(sessionId: string): string {
-  const tail = sessionId.replace(/\D/g, '').slice(-6) || '4K8NX2';
-  const y = new Date().getFullYear();
-  return `PF·${y}·FR·${tail.toUpperCase()}QM`;
-}
-
 export function closeAndDeliverMock(session: FormationSession): SessionCloseMock {
   const mock = ensureJuryDefaults(session, getSessionCloseMock(session.id));
   const today = new Date().toISOString().slice(0, 10);
@@ -178,10 +172,10 @@ export function closeAndDeliverMock(session: FormationSession): SessionCloseMock
         ? '7 séances sur 8 — 7 présences vérifiées · Financement : CPF'
         : '8 séances sur 8 — 8 présences vérifiées · Financement : CPF',
   }));
+  // proofCode: server `proof_number` only — never fabricate on FE.
   return upsert(session.id, {
     closed: true,
     closedAt: today,
-    proofCode: proofCodeFor(session.id),
     certificates,
   });
 }

@@ -402,59 +402,58 @@ const FormationSessionAffichePage: React.FC = () => {
         </div>
       )}
 
-      {sessionClosed && (
+      {sessionClosed && (session.proofNumber || closeMock.certificates.length > 0) && (
         <div className="fsa-panel" style={{ marginTop: 12 }}>
-          <div className="sc-blk">
-            <h4>
-              Preuve Formation — générée
-              {closeMock.proofCode
-                ? ` · ${formatProofCodeDisplay(closeMock.proofCode)}`
-                : ''}
-            </h4>
-            <div className="n">
-              {[
-                valid > 0
-                  ? `${proofLabel(valid, false)} délivrée${valid > 1 ? 's' : ''}`
-                  : null,
-                closeMock.certificates.length > 0
-                  ? `${closeMock.certificates.length} certificat${
-                      closeMock.certificates.length > 1 ? 's' : ''
-                    } de réalisation`
-                  : null,
-                partners.some((p) => p.coAttestedAt) ? 'co-attestée' : null,
-                formatDurationHoursLabel(session.durationHours),
-                `${session.seances.length || 1} séance${(session.seances.length || 1) > 1 ? 's' : ''} tenue${(session.seances.length || 1) > 1 ? 's' : ''}`,
-                'présences restituées par séance',
-                `accès nominatif jusqu'au ${nominativeAccessUntil(closeMock.closedAt)}`,
-              ]
-                .filter(Boolean)
-                .join(' · ')}
+          {session.proofNumber ? (
+            <div className="sc-blk">
+              <h4>
+                Preuve Formation — générée · {formatProofCodeDisplay(session.proofNumber)}
+              </h4>
+              <div className="n">
+                {[
+                  valid > 0
+                    ? `${proofLabel(valid, false)} délivrée${valid > 1 ? 's' : ''}`
+                    : null,
+                  closeMock.certificates.length > 0
+                    ? `${closeMock.certificates.length} certificat${
+                        closeMock.certificates.length > 1 ? 's' : ''
+                      } de réalisation`
+                    : null,
+                  partners.some((p) => p.coAttestedAt) ? 'co-attestée' : null,
+                  formatDurationHoursLabel(session.durationHours),
+                  `${session.seances.length || 1} séance${(session.seances.length || 1) > 1 ? 's' : ''} tenue${(session.seances.length || 1) > 1 ? 's' : ''}`,
+                  'présences restituées par séance',
+                  `accès nominatif jusqu'au ${nominativeAccessUntil(closeMock.closedAt)}`,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </div>
+              <div className="sc-btns">
+                <button type="button" className="sc-btn s sm">
+                  Exporter PDF
+                </button>
+                <button type="button" className="sc-btn s sm">
+                  Partager pour un contrôle ou un audit
+                </button>
+                <button type="button" className="sc-btn s sm">
+                  Vérification publique
+                </button>
+              </div>
+              <div className="n" style={{ marginTop: 6 }}>
+                Le rapport de la session : envoyé au financeur
+                {closeMock.closedAt ? ` le ${formatDateShortFr(closeMock.closedAt)}` : ''}.
+              </div>
+              <div className="sc-btns">
+                <button type="button" className="sc-btn p sm">
+                  Le rapport →
+                </button>
+              </div>
+              <div className="n" style={{ marginTop: 6, color: 'var(--fs-faint)' }}>
+                Le PDF porte le QR et le lien de la version en ligne — la version qui fait foi est la
+                consultation en ligne.
+              </div>
             </div>
-            <div className="sc-btns">
-              <button type="button" className="sc-btn s sm">
-                Exporter PDF
-              </button>
-              <button type="button" className="sc-btn s sm">
-                Partager pour un contrôle ou un audit
-              </button>
-              <button type="button" className="sc-btn s sm">
-                Vérification publique
-              </button>
-            </div>
-            <div className="n" style={{ marginTop: 6 }}>
-              Le rapport de la session : envoyé au financeur
-              {closeMock.closedAt ? ` le ${formatDateShortFr(closeMock.closedAt)}` : ''}.
-            </div>
-            <div className="sc-btns">
-              <button type="button" className="sc-btn p sm">
-                Le rapport →
-              </button>
-            </div>
-            <div className="n" style={{ marginTop: 6, color: 'var(--fs-faint)' }}>
-              Le PDF porte le QR et le lien de la version en ligne — la version qui fait foi est la
-              consultation en ligne.
-            </div>
-          </div>
+          ) : null}
           {closeMock.certificates.length > 0 && (
             <div className="sc-blk">
               <h4>
@@ -757,25 +756,33 @@ const FormationSessionAffichePage: React.FC = () => {
                 ...(validated && note ? { result_note: note } : {}),
               };
             });
-            const updated = await closeFormationSession(session.id, {
+            let updated = await closeFormationSession(session.id, {
               assessment_results_attached: true,
               trainer_names_shown: closeDraft.showTrainerName,
               participant_outcomes: outcomes,
             });
+            // If close response omitted proof_number, re-fetch GET project (never invent).
+            if (!updated.proofNumber) {
+              try {
+                const refreshed = await getFormationSession(session.id, session.orgName);
+                if (refreshed?.proofNumber) updated = refreshed;
+              } catch {
+                /* keep close payload */
+              }
+            }
             cacheFormationSession({
               ...updated,
               attendanceSurveyOptIn: session.attendanceSurveyOptIn,
               seances: session.seances,
               people: session.people.length ? session.people : updated.people,
             });
-            // Overlay certificat / naissance : présentation locale post-close API.
-            closeAndDeliverMock({ ...session, status: 'ended' });
+            closeAndDeliverMock({ ...session, status: 'ended', proofNumber: updated.proofNumber });
             setConfirmCloseOpen(false);
             setClosePanelOpen(false);
             setCloseDraft(null);
             setCloseTick((n) => n + 1);
             setTick((n) => n + 1);
-            setBirthOpen(true);
+            if (updated.proofNumber) setBirthOpen(true);
             showSuccess('Session clôturée');
           } catch (e: any) {
             showError(e?.message || 'Clôture impossible.');
