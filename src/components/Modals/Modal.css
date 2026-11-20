@@ -52,6 +52,19 @@
   margin: 0;
 }
 
+/* Attester picker: croix à côté du titre (pas superposée — Patrick lot1). */
+.select-project-badge-modal .modal-header h2 {
+  flex: 1;
+  min-width: 0;
+  padding-right: 0.5rem;
+}
+
+.select-project-badge-modal .modal-close {
+  position: static;
+  flex-shrink: 0;
+  z-index: auto;
+}
+
 .modal-subtitle {
   font-size: 0.9rem;
   color: var(--text-light, #6b7280);

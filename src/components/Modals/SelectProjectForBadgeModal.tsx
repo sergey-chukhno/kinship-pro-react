@@ -4,6 +4,7 @@ import { Project } from '../../types';
 import { getSchoolProjects, getCompanyProjects } from '../../api/Dashboard';
 import { getTeacherProjects } from '../../api/Projects';
 import { mapApiProjectToFrontendProject, getOrganizationId } from '../../utils/projectMapper';
+import { isAttestSelectableApiProject } from '../../utils/attestSelectableProjects';
 import './Modal.css';
 
 interface SelectProjectForBadgeModalProps {
@@ -63,7 +64,8 @@ const SelectProjectForBadgeModal: React.FC<SelectProjectForBadgeModalProps> = ({
         }
 
         const filtered = list.filter(
-          (p: any) => p.mlds_information == null && canAssignBadgesInProject(p, currentUserId)
+          (p: any) =>
+            isAttestSelectableApiProject(p) && canAssignBadgesInProject(p, currentUserId)
         );
         const mapped = filtered.map((p: any) =>
           mapApiProjectToFrontendProject(p, showingPageType, state.user)
@@ -90,9 +92,13 @@ const SelectProjectForBadgeModal: React.FC<SelectProjectForBadgeModalProps> = ({
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '560px' }}>
+      <div
+        className="modal-content select-project-badge-modal"
+        onClick={(e) => e.stopPropagation()}
+        style={{ maxWidth: '560px' }}
+      >
         <div className="modal-header">
-          <h2>Sélectionner un projet dans lequel vous voulez attribuer une preuve de compétences</h2>
+          <h2>Choisissez le projet</h2>
           <button type="button" className="modal-close" onClick={onClose} aria-label="Fermer">
             <i className="fas fa-times"></i>
           </button>
