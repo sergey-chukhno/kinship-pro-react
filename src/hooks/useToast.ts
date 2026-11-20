@@ -1,4 +1,5 @@
 import { toast, ToastOptions } from 'react-toastify';
+import { isSessionExpiredToastActive } from '../api/sessionExpiry';
 
 const defaultOptions: ToastOptions = {
   position: 'top-right',
@@ -15,6 +16,9 @@ export const useToast = () => {
   };
 
   const showError = (message: string, options?: ToastOptions) => {
+    // Suppress generic API error toasts while session-expired flow is active
+    // (avoids a stack of "Erreur lors de la récupération…" on parallel 401s).
+    if (isSessionExpiredToastActive()) return;
     toast.error(message, { ...defaultOptions, ...options });
   };
 
@@ -33,4 +37,3 @@ export const useToast = () => {
     showWarning,
   };
 };
-

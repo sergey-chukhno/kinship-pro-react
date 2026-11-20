@@ -1,5 +1,6 @@
 // src/api/axiosClient.ts
 import axios from 'axios';
+import { onAxiosClientResponseError } from './sessionExpiry';
 
 const API_BASE_URL = process.env.REACT_APP_DB_BASE_URL;
 
@@ -28,6 +29,11 @@ axiosClient.interceptors.request.use(
     return config;
   },
   (error) => Promise.reject(error)
+);
+
+axiosClient.interceptors.response.use(
+  (response) => response,
+  onAxiosClientResponseError
 );
 
 export default axiosClient;

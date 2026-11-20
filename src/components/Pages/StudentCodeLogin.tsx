@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import "./AuthPage.css";
 import { loginWithStudentCode } from "../../api/Authentication";
+import { clearSessionExpiredFlag } from "../../api/sessionExpiry";
 import { useAppContext } from "../../context/AppContext";
 import { useToast } from "../../hooks/useToast";
 import { getSafePostAuthRedirect } from "../../utils/authRedirect";
@@ -80,6 +81,7 @@ const StudentCodeLogin: React.FC = () => {
         throw new Error(STUDENT_CODE_MISMATCH);
       }
       localStorage.setItem("jwt_token", response.data.token);
+      clearSessionExpiredFlag();
       const normalizedUser = mapApiUserToAppUser(response.data.user);
       if (normalizedUser) setUser(normalizedUser);
 
