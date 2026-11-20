@@ -5,6 +5,7 @@ import { resolveCatalogueOrg } from '../../api/formationCatalogOrg';
 import { useAppContext } from '../../context/AppContext';
 import type { FormationSession } from '../../types/formationSession';
 import {
+  canShowCloseFormationSessionCta,
   formatSessionDateFr,
   getFormationSessionsForOrg,
   getSessionsNeedingStartDeclarationForOrg,
@@ -106,11 +107,11 @@ const FormationOrgDashboard: React.FC = () => {
     if (!org) return [];
     return getFormationSessionsForOrg(org).filter((s) => {
       const cm = getSessionCloseMock(s.id);
-      const ended = s.status === 'ended' || cm.closed;
-      if (ended) return false;
-      if (s.canCloseProject === true) return true;
-      const endDeclared = Boolean(s.activeEndDeclaration) || cm.endDeclared;
-      return endDeclared;
+      return canShowCloseFormationSessionCta(s, {
+        endDeclaredMock: cm.endDeclared,
+        closedMock: cm.closed,
+        viewerIsStructure: true,
+      });
     });
   }, [tick, closeTick, org]);
 

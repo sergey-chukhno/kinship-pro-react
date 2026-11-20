@@ -12,6 +12,7 @@ import { useAppContext } from '../../context/AppContext';
 import {
   addSessionSeance,
   cacheFormationSession,
+  canShowCloseFormationSessionCta,
   formatSessionDateFr,
   getSelectedSessionId,
   getSessionById,
@@ -236,11 +237,11 @@ const FormationSessionAffichePage: React.FC = () => {
         !endDeclared &&
         !sessionClosed;
   const showDeclareEndCta = canDeclareEnd;
-  const canCloseSession =
-    session.canCloseProject !== undefined
-      ? session.canCloseProject && !sessionClosed
-      : viewerRole === 'structure' && endDeclared && !sessionClosed;
-  const showCloseSessionCta = canCloseSession;
+  const showCloseSessionCta = canShowCloseFormationSessionCta(session, {
+    endDeclaredMock: closeMock.endDeclared,
+    closedMock: closeMock.closed,
+    viewerIsStructure: viewerRole === 'structure',
+  });
   const showPresenceCta =
     (viewerRole === 'formateur' || isResponsibleTrainer) &&
     session.startDeclared &&

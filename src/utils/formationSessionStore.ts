@@ -142,6 +142,34 @@ export function sessionHeroStatus(
   return 'coming';
 }
 
+/**
+ * Affiche / TB org — « Clôturer la session » only when EN COURS (début déclaré).
+ * Never on À VENIR even if BE sends can_close_project true (Patrick 20/11).
+ */
+export function canShowCloseFormationSessionCta(
+  session: Pick<
+    FormationSession,
+    'status' | 'startDeclared' | 'startDate' | 'endDate' | 'canCloseProject' | 'activeEndDeclaration'
+  >,
+  opts?: {
+    endDeclaredMock?: boolean;
+    closedMock?: boolean;
+    viewerIsStructure?: boolean;
+  }
+): boolean {
+  const closed = session.status === 'ended' || Boolean(opts?.closedMock);
+  if (closed) return false;
+  if (!session.startDeclared) return false;
+  if (sessionHeroStatus(session) !== 'in_progress') return false;
+
+  if (session.canCloseProject !== undefined) {
+    return session.canCloseProject === true;
+  }
+  const endDeclared =
+    Boolean(session.activeEndDeclaration) || Boolean(opts?.endDeclaredMock);
+  return Boolean(opts?.viewerIsStructure) && endDeclared;
+}
+
 function deriveStoredStatus(
   startDate: string,
   endDate: string,

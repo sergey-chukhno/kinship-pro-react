@@ -1,4 +1,5 @@
 import {
+  canShowCloseFormationSessionCta,
   catalogSessionSummary,
   createFormationSession,
   declareSessionStart,
@@ -109,6 +110,48 @@ describe('formationSessionStore', () => {
     expect(participantCountLabel(0)).toBe('0 participant');
     expect(participantCountLabel(1)).toBe('1 participant');
     expect(participantCountLabel(3)).toBe('3 participants');
+  });
+
+  it('shows Clôturer only when session is in progress (start declared)', () => {
+    const coming = {
+      status: 'coming' as const,
+      startDeclared: false,
+      startDate: '2026-11-10',
+      endDate: '2026-11-11',
+      canCloseProject: true,
+      activeEndDeclaration: null,
+    };
+    expect(canShowCloseFormationSessionCta(coming)).toBe(false);
+
+    const inProgress = {
+      status: 'in_progress' as const,
+      startDeclared: true,
+      startDate: '2026-11-10',
+      endDate: '2099-12-01',
+      canCloseProject: true,
+      activeEndDeclaration: { declaredAt: '2026-11-19' },
+    };
+    expect(canShowCloseFormationSessionCta(inProgress)).toBe(true);
+
+    const ended = {
+      ...inProgress,
+      status: 'ended' as const,
+    };
+    expect(canShowCloseFormationSessionCta(ended)).toBe(false);
+
+    const noFlag = {
+      status: 'in_progress' as const,
+      startDeclared: true,
+      startDate: '2026-11-10',
+      endDate: '2099-12-01',
+      activeEndDeclaration: { declaredAt: '2026-11-19' },
+    };
+    expect(
+      canShowCloseFormationSessionCta(noFlag, { viewerIsStructure: true })
+    ).toBe(true);
+    expect(
+      canShowCloseFormationSessionCta(noFlag, { viewerIsStructure: false })
+    ).toBe(false);
   });
 
   it('filters TB sessions by organization stamp', () => {
