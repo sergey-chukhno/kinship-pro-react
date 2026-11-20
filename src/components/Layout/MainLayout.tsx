@@ -1,6 +1,8 @@
 import React, { useEffect } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
+import { SESSION_EXPIRED_EVENT } from '../../api/sessionExpiry';
+import { useSessionKeepAlive } from '../../hooks/useSessionKeepAlive';
 import Analytics from '../Pages/Analytics';
 import AuthPage from '../Pages/AuthPage';
 import StudentCodeLogin from '../Pages/StudentCodeLogin';
@@ -49,11 +51,13 @@ import { getSessionById } from '../../utils/formationSessionStore';
 // import SuperAdminOfQueuePage from '../Pages/SuperAdminOfQueuePage';
 
 const MainLayout: React.FC = () => {
-  const { state, setCurrentPage} = useAppContext();
+  const { state, setCurrentPage, setUser } = useAppContext();
   const location = useLocation();
+  const navigate = useNavigate();
   const isFollowRoute = location.pathname.startsWith('/follow/');
 
   const { isAuthChecking } = useAuthInit();
+  useSessionKeepAlive(!isAuthChecking);
 
   // Initialiser les couleurs à des valeurs neutres au démarrage
   useEffect(() => {
@@ -73,16 +77,15 @@ const MainLayout: React.FC = () => {
     });
   }, [state.showingPageType, state.user, isAuthChecking]);
 
-
-  /*
   useEffect(() => {
-    const handleUnauthorized = () => {
+    const onSessionExpired = () => {
+      setUser(null);
       setCurrentPage('Auth');
+      navigate('/login', { replace: true });
     };
-    window.addEventListener('unauthorized', handleUnauthorized);
-    return () => window.removeEventListener('unauthorized', handleUnauthorized);
-  }, [setCurrentPage]);
-  */
+    window.addEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
+  }, [setUser, setCurrentPage, navigate]);
 
   const renderCurrentPage = () => {
     // Afficher un loader pendant la vérification de l'authentification

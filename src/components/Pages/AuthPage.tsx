@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from "react"
 import { useParams, useNavigate, useLocation } from "react-router-dom"
 import "./AuthPage.css"
 import { login, confirmAccount } from "../../api/Authentication"
+import { clearSessionExpiredFlag } from "../../api/sessionExpiry"
 import PersonalUserRegisterForm from "../RegisterForm/PersonalUserRegisterForm"
 import TeacherRegisterForm from "../RegisterForm/TeacherRegisterForm"
 import CompanyRegisterForm from "../RegisterForm/CompanyRegisterForm"
@@ -124,6 +125,7 @@ const AuthPage: React.FC = () => {
         console.log("Login successful:", response.data)
         if (response.data.token) {
           localStorage.setItem("jwt_token", response.data.token)
+          clearSessionExpiredFlag()
           const normalizedUser = mapApiUserToAppUser(response.data.user)
           if (normalizedUser) {
             setUser(normalizedUser)
