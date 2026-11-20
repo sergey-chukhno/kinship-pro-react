@@ -35,6 +35,18 @@ const FIN_TO_BE: Record<string, string> = {
   Autre: 'autre',
 };
 
+/** Flat `proof_number` (Sergey staging) or nested `project_proof.proof_number`. */
+export function extractProofNumber(p: {
+  proof_number?: unknown;
+  project_proof?: { proof_number?: unknown } | null;
+}): string | null {
+  const flat = typeof p.proof_number === 'string' ? p.proof_number.trim() : '';
+  if (flat) return flat;
+  const nested = p.project_proof?.proof_number;
+  if (typeof nested === 'string' && nested.trim()) return nested.trim();
+  return null;
+}
+
 const FIN_FROM_BE: Record<string, FinancementType> = {
   cpf: 'CPF',
   opco: 'OPCO',
@@ -173,6 +185,23 @@ export function projectToFormationSession(
     imageDataUrl: p.main_picture_url || undefined,
     status: mapStatus(p.status, startDeclared),
     startDeclared,
+    canDeclareEnd:
+      p.can_declare_end === undefined ? undefined : Boolean(p.can_declare_end),
+    canCloseProject:
+      p.can_close_project === undefined ? undefined : Boolean(p.can_close_project),
+    activeEndDeclaration: p.active_end_declaration
+      ? {
+          declaredAt: p.active_end_declaration.declared_at
+            ? String(p.active_end_declaration.declared_at)
+            : undefined,
+          note: p.active_end_declaration.note ?? null,
+          declaredById:
+            p.active_end_declaration.declared_by_id != null
+              ? Number(p.active_end_declaration.declared_by_id)
+              : null,
+        }
+      : null,
+    proofNumber: extractProofNumber(p),
     attendanceSurveyOptIn: false,
     people,
     seances: [

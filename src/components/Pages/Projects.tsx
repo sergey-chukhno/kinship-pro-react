@@ -18,6 +18,7 @@ import { deleteProject, getAllProjects, getAllUserProjects, getProjectById, getU
 import { getCompanyProjects, getSchoolProjects, getTeacherClasses } from '../../api/Dashboard';
 import { closeProject, createProject, getTeacherProjects, postMldsBilan } from '../../api/Projects';
 import {
+  getContextFromPageType,
   getOrganizationType,
   mapApiProjectToFrontendProject,
   projectBelongsToOrganizationContext,
@@ -1455,6 +1456,7 @@ const Projects: React.FC = () => {
         search: `?${searchParams.toString()}`,
       }));
       setConcretiseSeed(seed);
+
     } catch {
       showError('Impossible de préparer le projet classique à partir de ce projet MLDS.');
     }

@@ -35,7 +35,7 @@ const CloseFormationBirthOverlay: React.FC<CloseFormationBirthOverlayProps> = ({
           </svg>
           <div>
             <div className="pfc-kname">Kinship</div>
-            <div className="pfc-ktype">{euMc ? 'Microcertification UE' : 'Preuve Formation®'}</div>
+            <div className="pfc-ktype">{euMc ? 'Microcertification UE' : 'Preuve Formation'}</div>
           </div>
         </div>
         <div className="pfc-num">{proofNumber.replace('·', '·\n')}</div>
@@ -51,7 +51,7 @@ const CloseFormationBirthOverlay: React.FC<CloseFormationBirthOverlayProps> = ({
             <span className="pfc-orgname">{organization}</span>
           </div>
         ) : null}
-        {qualiopi ? <div className="pfc-trust">◆ Reconnu et certifié par Qualiopi</div> : null}
+        {qualiopi ? <div className="pfc-trust">◆ Organisme de formation certifié</div> : null}
         <div className="pfc-share">
           <div className="pfc-qr" aria-hidden>
             <svg width="20" height="20" viewBox="0 0 40 40">

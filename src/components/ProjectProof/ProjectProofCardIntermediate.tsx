@@ -47,7 +47,7 @@ const ProjectProofCardIntermediate: React.FC<ProjectProofCardIntermediateProps> 
               Kinship
             </div>
             <div className="pp-inter-ktype" style={{ color: levelStyle.kinshipTypeColor }}>
-              Preuve Projet®
+              Preuve Projet
             </div>
           </div>
         </div>
@@ -83,7 +83,7 @@ const ProjectProofCardIntermediate: React.FC<ProjectProofCardIntermediateProps> 
 
       <div className="pp-inter-status">
         <span className="pp-dot" />
-        <span className="pp-inter-status-text">Preuve Projet® active</span>
+        <span className="pp-inter-status-text">Preuve Projet active</span>
       </div>
 
       <div className="pp-inter-kpis">

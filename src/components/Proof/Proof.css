@@ -21,6 +21,21 @@
   margin: 0 auto 24px;
 }
 
+/* Patrick A3 — titulaire connectée seule, au-dessus de la bande */
+.proof-back-mes-preuves {
+  display: inline-block;
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #4c4a44;
+  text-decoration: none;
+}
+
+.proof-back-mes-preuves:hover {
+  color: #1c1b18;
+  text-decoration: underline;
+}
+
 .proof-card {
   background: #fff;
   border-radius: 16px;

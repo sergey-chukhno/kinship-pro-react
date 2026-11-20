@@ -51,7 +51,7 @@ const FormationProofCardIntermediate: React.FC<FormationProofCardIntermediatePro
               Kinship
             </div>
             <div className="pp-inter-ktype" style={{ color: levelStyle.kinshipTypeColor }}>
-              Preuve Formation®
+              Preuve Formation
             </div>
           </div>
         </div>
@@ -83,7 +83,7 @@ const FormationProofCardIntermediate: React.FC<FormationProofCardIntermediatePro
 
       <div className="pp-inter-status">
         <span className="pp-dot" />
-        <span className="pp-inter-status-text">Preuve Formation® active</span>
+        <span className="pp-inter-status-text">Preuve Formation active</span>
       </div>
 
       <div className="pp-inter-kpis">

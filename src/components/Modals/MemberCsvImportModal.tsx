@@ -15,19 +15,20 @@ interface MemberCsvImportModalProps {
   }>;
   isSchool?: boolean;
   allowsMinorMembers?: boolean;
+  /** Org digital majority age (FR=15, BE=13) — used in helper copy only */
+  digitalMajorityAge?: number;
 }
 
 const LEGAL_CONSENT_LABEL =
-  "Je déclare avoir informé le représentant légal et avoir obtenu son autorisation préalable pour la création de ce compte.";
-const LEGAL_CONSENT_TRACEABILITY =
-  "Cette déclaration est enregistrée et horodatée à des fins de traçabilité.";
+  "Je déclare que, si ce fichier contient des personnes n’ayant pas atteint la majorité numérique (15 ans en France, 13 ans en Belgique), leur représentant légal a été informé et a donné son autorisation préalable à la création de leur compte. Cette déclaration est enregistrée et horodatée à des fins de traçabilité.";
 
 const MemberCsvImportModal: React.FC<MemberCsvImportModalProps> = ({
   isOpen,
   onClose,
   onImport,
   isSchool = false,
-  allowsMinorMembers = false
+  allowsMinorMembers = false,
+  digitalMajorityAge = 15
 }) => {
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -44,8 +45,9 @@ const MemberCsvImportModal: React.FC<MemberCsvImportModalProps> = ({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (!file.name.endsWith('.csv')) {
-        alert('Le fichier doit être au format CSV');
+      const lower = file.name.toLowerCase();
+      if (!lower.endsWith('.csv') && !lower.endsWith('.xlsx')) {
+        alert('Le fichier doit être au format CSV ou XLSX');
         return;
       }
       setCsvFile(file);
@@ -55,7 +57,7 @@ const MemberCsvImportModal: React.FC<MemberCsvImportModalProps> = ({
 
   const handleImport = async () => {
     if (!csvFile) {
-      alert('Veuillez sélectionner un fichier CSV');
+      alert('Veuillez sélectionner un fichier CSV ou XLSX');
       return;
     }
 
@@ -93,7 +95,7 @@ const MemberCsvImportModal: React.FC<MemberCsvImportModalProps> = ({
     <div className="modal-overlay" onClick={handleClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px' }}>
         <div className="modal-header">
-          <h2>Importer des membres depuis un CSV</h2>
+          <h2>Importer des membres (CSV ou Excel)</h2>
           <button className="modal-close" onClick={handleClose}>
             <i className="fas fa-times"></i>
           </button>
@@ -103,7 +105,7 @@ const MemberCsvImportModal: React.FC<MemberCsvImportModalProps> = ({
           {!importResults ? (
             <>
               <div className="form-group">
-                <label htmlFor="csvFile">Sélectionner un fichier CSV</label>
+                <label htmlFor="csvFile">Sélectionner un fichier CSV ou XLSX</label>
                 <a 
                   download={isSchool ? "/template-liste-membres-ecole.csv" : "/template-liste-membres.csv"} 
                   className="text-xs text-[-primary] flex items-center gap-1"
@@ -111,24 +113,24 @@ const MemberCsvImportModal: React.FC<MemberCsvImportModalProps> = ({
                   style={{ display: 'inline-flex', marginBottom: '0.5rem' }}
                 >
                   <i className="fas fa-info-circle"/> 
-                  Télécharger le template
+                  Télécharger le template CSV
                 </a>
                 <input
                   id="csvFile"
                   type="file"
-                  accept=".csv"
+                  accept=".csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                   onChange={handleFileChange}
                   className="form-input"
                   disabled={isUploading}
                 />
                 <p style={{ fontSize: '0.85rem', color: '#6b7280', marginTop: '0.5rem' }}>
-                  Format attendu: Prénom (requis), Nom (requis), Date de naissance (requis), Adresse e-mail (optionnel),
-                  Email représentant légal ({isSchool ? 'optionnel' : 'obligatoire pour les mineurs de moins de 15 ans'})
+                  Format attendu: Prénom (requis), Nom ou Nom de famille (requis), Date de naissance (requis), Adresse e-mail (optionnel),
+                  Email représentant légal ({isSchool ? 'optionnel' : `obligatoire pour les mineurs de moins de ${digitalMajorityAge} ans`})
                   {isSchool && ', Classe (optionnel)'}
                   {!isSchool && (
                     <>
                       <br />
-                      Les adultes (15 ans et plus) sont importés en tant que volontaires. Les mineurs nécessitent un contrat BLEU Premium.
+                      Les adultes ({digitalMajorityAge} ans et plus) sont importés en tant que bénévoles. Les mineurs nécessitent un contrat BLEU Premium.
                     </>
                   )}
                 </p>
@@ -146,8 +148,6 @@ const MemberCsvImportModal: React.FC<MemberCsvImportModalProps> = ({
                     />
                     <span style={{ fontSize: '0.9rem' }}>
                       {LEGAL_CONSENT_LABEL}
-                      <br />
-                      <span style={{ fontSize: '0.8rem', color: '#6b7280' }}>{LEGAL_CONSENT_TRACEABILITY}</span>
                     </span>
                   </label>
                 </div>

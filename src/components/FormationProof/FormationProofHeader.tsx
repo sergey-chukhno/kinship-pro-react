@@ -32,7 +32,7 @@ export const FormationProofHeader: React.FC<FormationProofHeaderProps> = ({
     <div className="pp-header">
       {showPorteurBar && (
         <div className="porteur-bar">
-          <span className="porteur-label">Vous consultez votre Preuve Formation®</span>
+          <span className="porteur-label">Vous consultez votre Preuve Formation</span>
           <div className="porteur-toggle">
             <span>Anonyme</span>
             <button
@@ -71,7 +71,7 @@ export const FormationProofHeader: React.FC<FormationProofHeaderProps> = ({
               Kinship
             </div>
             <div className="pp-ktype" style={{ color: levelStyle.kinshipTypeColor }}>
-              Preuve Formation®
+              Preuve Formation
             </div>
           </div>
         </div>
@@ -115,7 +115,7 @@ export const FormationProofHeader: React.FC<FormationProofHeaderProps> = ({
 
       <div className="pp-status">
         <div className="pp-dot" />
-        <span className="pp-status-text">Preuve Formation® active</span>
+        <span className="pp-status-text">Preuve Formation active</span>
         <span className="pp-status-text" style={{ marginLeft: 'auto' }}>
           Calculée le {proof.calculatedDate}
         </span>

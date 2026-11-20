@@ -6,7 +6,6 @@ import { getCompanyGroup, getCompanyGroups, CompanyGroup } from '../../api/Compa
 import {
   addPartnerCoResponsible,
   addProjectDocuments,
-  addProjectFunder,
   addProjectMember,
   CoResponsibleCandidate,
   preRegisterProjectParticipant,
@@ -50,6 +49,7 @@ import {
   resolveProjectMemberUserId,
 } from '../../utils/projectPermissions';
 import { shouldShowEndDateWarningBanner } from '../../utils/projectStateGuards';
+import { funderCardInformedLine } from '../../utils/funderInformedLabel';
 import { translateRole } from '../../utils/roleTranslations';
 import { displayCivilLabel, displayPersonName } from '../../utils/civilDataErased';
 import { displayLabelForCatalogKey } from '../../constants/catalogSeries';
@@ -73,6 +73,9 @@ import {
 } from '../../utils/partnershipDisplay';
 import EuMcGoldSummary from './EuMcGoldSummary';
 import AttestCompetenceModal from '../Modals/AttestCompetenceModal';
+import ProjectStepsCard from '../ProjectSteps/ProjectStepsCard';
+import ProjectStepFormModal from '../ProjectSteps/ProjectStepFormModal';
+import { listProjectSteps, type ProjectStep } from '../../api/ProjectSteps';
 import './ProjectAffichePage.css';
 
 /** Famille A — porteur: holder_display first; never show CIVIL_DATA_ERASED literal. */
@@ -101,11 +104,11 @@ function displayProofSender(b: any, fallback: string = '—'): string {
   );
 }
 
-type AfficheTab = 'overview' | 'requests' | 'participants' | 'teams' | 'proofs' | 'documents';
+type AfficheTab = 'overview' | 'requests' | 'participants' | 'steps' | 'teams' | 'proofs' | 'documents';
 type AddPanel = 'person' | 'partner' | 'funder' | 'document' | 'link' | 'team' | null;
 type ViewMode = 'cards' | 'list';
 
-const INNER_AFFICHE_TABS: [AfficheTab, string][] = [
+const INNER_AFFICHE_TABS_BASE: [AfficheTab, string][] = [
   ['overview', 'Vue d’ensemble'],
   ['requests', 'Demandes'],
   ['participants', 'Participants'],
@@ -300,6 +303,9 @@ const ProjectAffichePage: React.FC = () => {
   const [teams, setTeams] = useState<Team[]>([]);
   const [stats, setStats] = useState<ProjectStats | null>(null);
   const [badges, setBadges] = useState<any[]>([]);
+  const [projectSteps, setProjectSteps] = useState<ProjectStep[]>([]);
+  const [stepFormOpen, setStepFormOpen] = useState(false);
+  const [editingStep, setEditingStep] = useState<ProjectStep | null>(null);
   const [orgPeople, setOrgPeople] = useState<any[]>([]);
   const [partnerships, setPartnerships] = useState<Partnership[]>([]);
   const [groups, setGroups] = useState<CompanyGroup[]>([]);
@@ -319,9 +325,6 @@ const ProjectAffichePage: React.FC = () => {
   const [coRespCandidates, setCoRespCandidates] = useState<CoResponsibleCandidate[]>([]);
   const [coRespLoading, setCoRespLoading] = useState(false);
   const [coRespSaving, setCoRespSaving] = useState(false);
-  const [funderName, setFunderName] = useState('');
-  const [funderEmail, setFunderEmail] = useState('');
-  const [funderShare, setFunderShare] = useState<'nominatif' | 'anonyme'>('nominatif');
   const [linkLabel, setLinkLabel] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
   const [docFile, setDocFile] = useState<File | null>(null);
@@ -368,13 +371,14 @@ const ProjectAffichePage: React.FC = () => {
       setApiProject(raw);
       setProject(mapped);
       setExtras(getProjectSpaceExtras(mapped.id));
-      const [mem, docs, funderList, teamList, statsRes, badgeRes] = await Promise.all([
+      const [mem, docs, funderList, teamList, statsRes, badgeRes, steps] = await Promise.all([
         getProjectMembers(Number(projectId)).catch(() => []),
         getProjectDocuments(Number(projectId)).catch(() => ({ data: [] as ProjectDocument[] })),
         getProjectFunders(Number(projectId)).catch(() => [] as ProjectFunder[]),
         getProjectTeams(Number(projectId)).catch(() => [] as Team[]),
         getProjectStats(Number(projectId)).catch(() => null),
         getProjectBadges(Number(projectId), 1, 50).catch(() => ({ data: [] as any[] })),
+        listProjectSteps(Number(projectId)).catch(() => [] as ProjectStep[]),
       ]);
       setMembers(Array.isArray(mem) ? mem : []);
       setDocuments(docs?.data || []);
@@ -382,12 +386,23 @@ const ProjectAffichePage: React.FC = () => {
       setTeams(Array.isArray(teamList) ? teamList : []);
       setStats(statsRes);
       setBadges(Array.isArray(badgeRes?.data) ? badgeRes.data : []);
+      setProjectSteps(Array.isArray(steps) ? steps : []);
     } catch (e: any) {
       setError(e?.response?.data?.message || 'Impossible de charger l’affiche.');
     } finally {
       setLoading(false);
     }
   }, [projectId, state.showingPageType]);
+
+  const refreshProjectSteps = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      const steps = await listProjectSteps(Number(projectId));
+      setProjectSteps(Array.isArray(steps) ? steps : []);
+    } catch {
+      /* keep current */
+    }
+  }, [projectId]);
 
   // Recharge les compteurs (participants, preuves) après une action qui les change —
   // sans quoi ils restent figés jusqu'au rechargement de la page (Patrick 29/09, point 4d).
@@ -482,12 +497,29 @@ const ProjectAffichePage: React.FC = () => {
   const isSuperadminReadOnly = isUserSuperadminOfProjectOrg(apiProject, state.user) && !isOwner && !isCoOwner && !isParticipant;
   const isVisitor = !isOwner && !isCoOwner && !isParticipant && !isSuperadminReadOnly && !isEncadrant;
   const canGovern = isOwner && !isEnded && !isSuperadminReadOnly;
+  // V1.5.2 — API garde by kind; when field absent keep previous owner-only UX.
+  const canClose =
+    !isEnded &&
+    (project?.canCloseProject === true ||
+      (project?.canCloseProject === undefined && canGovern));
   const canAttest = (isOwner || isCoOwner || isEncadrant) && !isEnded && !isSuperadminReadOnly;
   const canAddParticipants = (isOwner || isCoOwner) && !isEnded && !isSuperadminReadOnly;
   const canManageTeams = (isOwner || isCoOwner) && !isEnded && !isSuperadminReadOnly;
+  const canManageSteps = (isOwner || isCoOwner) && !isEnded && !isSuperadminReadOnly;
   const canSeeInner = !isVisitor;
   const canSeeFunders = !isVisitor;
   const showCloseBanner = canGovern && shouldShowEndDateWarningBanner(project?.status, project?.showEndDateWarning);
+
+  // Patrick V0.7 — onglet Étapes seulement dès la 1re étape (après Participants).
+  const INNER_AFFICHE_TABS = useMemo((): [AfficheTab, string][] => {
+    if (projectSteps.length === 0) return INNER_AFFICHE_TABS_BASE;
+    const tabs: [AfficheTab, string][] = [];
+    for (const [id, label] of INNER_AFFICHE_TABS_BASE) {
+      tabs.push([id, label]);
+      if (id === 'participants') tabs.push(['steps', 'Étapes']);
+    }
+    return tabs;
+  }, [projectSteps.length]);
 
   useEffect(() => {
     if (!apiProject) return;
@@ -500,6 +532,12 @@ const ProjectAffichePage: React.FC = () => {
       setTab('documents');
     }
   }, [isVisitor, documents]);
+
+  useEffect(() => {
+    if (tab === 'steps' && projectSteps.length === 0) {
+      setTab('overview');
+    }
+  }, [tab, projectSteps.length]);
 
   const memberApiRole = (member: any): string | undefined =>
     member?.project_role || member?.role;
@@ -837,26 +875,6 @@ const ProjectAffichePage: React.FC = () => {
       );
     } finally {
       setCoRespSaving(false);
-    }
-  };
-
-  const addFunder = async () => {
-    const email = funderEmail.trim();
-    const name = funderName.trim() || email;
-    if (!email) {
-      showError('Indiquez l’email du financeur — c’est lui qui recevra le lien de suivi.');
-      return;
-    }
-    if (!projectId) return;
-    try {
-      const added = await addProjectFunder(Number(projectId), { name, email, share_mode: funderShare });
-      setFunders((current) => [added, ...current.filter((f) => f.id !== added.id)]);
-      setFunderName('');
-      setFunderEmail('');
-      setAddPanel(null);
-      showSuccess('Financeur ajouté.');
-    } catch (e: any) {
-      showError(e?.response?.data?.details?.[0] || e?.response?.data?.message || 'Impossible d’ajouter ce financeur.');
     }
   };
 
@@ -1245,7 +1263,7 @@ const ProjectAffichePage: React.FC = () => {
             <button type="button" className="pa-back" onClick={goBack} aria-label="Retour">←</button>
             <div className="pa-pt">Le projet</div>
             <div className="pa-sp">
-              {canGovern && project.status === 'in_progress' && (
+              {canClose && project.status === 'in_progress' && (
                 <button type="button" className="pa-bt-ghost" onClick={() => setCloseOpen(true)}>✓ Clôturer le projet</button>
               )}
               {isOwner && project.status === 'ended' && !isSuperadminReadOnly && (
@@ -1527,7 +1545,11 @@ const ProjectAffichePage: React.FC = () => {
                     <div className="pa-elabel">
                       Financeurs ({funders.length}) ⓘ
                       {canGovern && (
-                        <button type="button" onClick={() => setAddPanel(addPanel === 'funder' ? null : 'funder')}>
+                        <button
+                          type="button"
+                          disabled
+                          title="Disponible après mise en production D-FORMATION-SHARE-01"
+                        >
                           + Ajouter un financeur
                         </button>
                       )}
@@ -1541,37 +1563,17 @@ const ProjectAffichePage: React.FC = () => {
                         <div className="pa-logo">{f.initials || initialsOf(f.name)}</div>
                         <div>
                           {f.name}
-                          <small>financeur · {f.share_mode === 'anonyme' ? 'vue anonymisée' : 'vue nominative'}</small>
+                          <small>
+                            {funderCardInformedLine({
+                              startedNotifiedAt: f.started_notified_at,
+                              informedOn: f.informed_on,
+                              shareMode: f.share_mode,
+                            })}
+                          </small>
                         </div>
                       </div>
                     ))}
                     <div className="pa-graygl">Visible par l’équipe et les partenaires — jamais par les visiteurs. Un financeur n’est pas un partenaire.</div>
-                    {addPanel === 'funder' && canGovern && (
-                      <div className="pa-panel">
-                        <h5>Ajouter un financeur</h5>
-                        <div className="pa-field">
-                          <label>Organisation</label>
-                          <input className="pa-fin" value={funderName} onChange={(e) => setFunderName(e.target.value)} placeholder="Nom du financeur" />
-                        </div>
-                        <div className="pa-field">
-                          <label>Email <em>✱</em></label>
-                          <input className="pa-fin" value={funderEmail} onChange={(e) => setFunderEmail(e.target.value)} placeholder="il recevra le lien de suivi" />
-                        </div>
-                        <div className="pa-klabel">mode de suivi</div>
-                        <button type="button" className={`pa-radio ${funderShare === 'nominatif' ? 'on' : ''}`} onClick={() => setFunderShare('nominatif')}>
-                          <span className="dot">{funderShare === 'nominatif' ? <i /> : null}</span>
-                          <div>Nominatif</div>
-                        </button>
-                        <button type="button" className={`pa-radio ${funderShare === 'anonyme' ? 'on' : ''}`} onClick={() => setFunderShare('anonyme')}>
-                          <span className="dot">{funderShare === 'anonyme' ? <i /> : null}</span>
-                          <div>Anonyme</div>
-                        </button>
-                        <div className="pa-actions-end">
-                          <button type="button" className="pa-bt-ghost" onClick={() => setAddPanel(null)}>Annuler</button>
-                          <button type="button" className="pa-addb" onClick={() => void addFunder()}>Ajouter</button>
-                        </div>
-                      </div>
-                    )}
                   </>
                 )}
               </>
@@ -1585,7 +1587,9 @@ const ProjectAffichePage: React.FC = () => {
                 <br />
                 <b>La date de fin est passée.</b> Votre projet est-il terminé ? La clôture permet de générer sa Preuve Projet — authentique et vérifiable.
               </div>
-              <button type="button" className="vb" onClick={() => setCloseOpen(true)}>Clôturer le projet</button>
+              {canClose && (
+                <button type="button" className="vb" onClick={() => setCloseOpen(true)}>Clôturer le projet</button>
+              )}
             </div>
           )}
 
@@ -1629,6 +1633,22 @@ const ProjectAffichePage: React.FC = () => {
                   <div className="pa-sec">
                     <h4>Description</h4>
                     <div className="pa-desc">{desc || 'Aucune description.'}</div>
+                  </div>
+                  <div className="pa-sec" style={{ padding: 0, border: 'none', background: 'transparent' }}>
+                    <ProjectStepsCard
+                      steps={projectSteps}
+                      mode="overview"
+                      canEdit={canManageSteps}
+                      onAdd={() => {
+                        setEditingStep(null);
+                        setStepFormOpen(true);
+                      }}
+                      onEdit={(s) => {
+                        setEditingStep(s);
+                        setStepFormOpen(true);
+                      }}
+                      onSeeAll={() => setTab('steps')}
+                    />
                   </div>
                   {project?.isEuMcDeclared && (
                     <div className="pa-sec">
@@ -1836,6 +1856,24 @@ const ProjectAffichePage: React.FC = () => {
                       </tbody>
                     </table>
                   )}
+                </div>
+              )}
+
+              {canSeeInner && tab === 'steps' && projectSteps.length > 0 && (
+                <div className="pa-sec" style={{ padding: 0, border: 'none', background: 'transparent' }}>
+                  <ProjectStepsCard
+                    steps={projectSteps}
+                    mode="full"
+                    canEdit={canManageSteps}
+                    onAdd={() => {
+                      setEditingStep(null);
+                      setStepFormOpen(true);
+                    }}
+                    onEdit={(s) => {
+                      setEditingStep(s);
+                      setStepFormOpen(true);
+                    }}
+                  />
                 </div>
               )}
 
@@ -2209,6 +2247,22 @@ const ProjectAffichePage: React.FC = () => {
         </div>
       )}
 
+      {stepFormOpen && projectId && project && (
+        <ProjectStepFormModal
+          projectId={Number(projectId)}
+          projectTitle={project.title}
+          projectKind={project.projectKind || apiProject?.project_kind}
+          step={editingStep}
+          onClose={() => {
+            setStepFormOpen(false);
+            setEditingStep(null);
+          }}
+          onSaved={() => {
+            void refreshProjectSteps();
+          }}
+        />
+      )}
+
       {isAttestOpen && project && (
         <AttestCompetenceModal
           onClose={() => {
@@ -2224,6 +2278,7 @@ const ProjectAffichePage: React.FC = () => {
               /* keep current list */
             }
             refreshStats();
+            void refreshProjectSteps();
           }}
           participants={confirmedMembers.map((m) => ({
             id: memberId(m),

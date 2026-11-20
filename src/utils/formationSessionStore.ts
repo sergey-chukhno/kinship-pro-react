@@ -132,6 +132,8 @@ export function openSessionAffiche(id: string, role: SessionViewerRole = 'struct
 export function sessionHeroStatus(
   session: Pick<FormationSession, 'startDeclared' | 'startDate' | 'endDate' | 'status'>
 ): 'coming' | 'in_progress' | 'ended' {
+  // API / close: respect ended even when endDate is still in the future (catalogue list).
+  if (session.status === 'ended') return 'ended';
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const end = new Date(`${session.endDate}T23:59:59`);

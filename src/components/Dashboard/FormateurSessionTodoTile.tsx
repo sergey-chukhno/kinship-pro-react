@@ -87,7 +87,9 @@ const FormateurSessionTodoTile: React.FC = () => {
 
     needingStart.forEach((session, idx) => {
       const cm = getSessionCloseMock(session.id);
-      if (cm.closed || cm.endDeclared) return;
+      const ended = session.status === 'ended' || cm.closed;
+      const endDeclared = Boolean(session.activeEndDeclaration) || cm.endDeclared;
+      if (ended || endDeclared) return;
       list.push({
         id: `start-${session.id}`,
         accent: 'var(--fs-warn-ink)',
@@ -106,7 +108,11 @@ const FormateurSessionTodoTile: React.FC = () => {
 
     const toDeclareEnd = mine.find((s) => {
       const cm = getSessionCloseMock(s.id);
-      return s.startDeclared && !cm.endDeclared && !cm.closed;
+      const ended = s.status === 'ended' || cm.closed;
+      const endDeclared = Boolean(s.activeEndDeclaration) || cm.endDeclared;
+      if (s.canDeclareEnd === false) return false;
+      if (s.canDeclareEnd === true) return !ended;
+      return s.startDeclared && !endDeclared && !ended;
     });
     if (toDeclareEnd) {
       list.push({
@@ -127,9 +133,8 @@ const FormateurSessionTodoTile: React.FC = () => {
 
     const presenceSession = mine.find((s) => {
       const cm = getSessionCloseMock(s.id);
-      return (
-        s.startDeclared && s.attendanceSurveyOptIn && s.status !== 'ended' && !cm.closed
-      );
+      const ended = s.status === 'ended' || cm.closed;
+      return s.startDeclared && s.attendanceSurveyOptIn && !ended;
     });
     void closeTick;
     if (presenceSession) {

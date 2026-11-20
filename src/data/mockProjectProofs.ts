@@ -66,7 +66,7 @@ const TIMELINE_FULL = [
   {
     date: '15 juillet 2025',
     dateColor: '#48A78D',
-    title: 'Clôture du projet · Preuve Projet® générée',
+    title: 'Clôture du projet · Preuve Projet générée',
   },
 ];
 

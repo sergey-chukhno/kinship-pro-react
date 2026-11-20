@@ -7,6 +7,9 @@ import { FormationFiche } from '../../types/formationCatalogue';
 import {
   catalogSessionSummary,
   formatSessionDateFr,
+  getSessionsForCatalogEntry,
+  openSessionAffiche,
+  sessionHeroStatus,
   subscribeFormationSessions,
 } from '../../utils/formationSessionStore';
 import './CatalogueFormationsPage.css';
@@ -27,6 +30,7 @@ const CatalogueFormationsPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [sessionTick, setSessionTick] = useState(0);
+  const [sessionsPanelId, setSessionsPanelId] = useState<string | null>(null);
 
   useEffect(() => subscribeFormationSessions(() => setSessionTick((n) => n + 1)), []);
 
@@ -88,6 +92,13 @@ const CatalogueFormationsPage: React.FC = () => {
   const openImport = () => {
     setCurrentPage('catalogue-import');
     navigate('/catalogue-import');
+  };
+
+  const openSessionAfficheFromCatalogue = (sessionId: string) => {
+    openSessionAffiche(sessionId, 'structure');
+    setCurrentPage('formation-affiche');
+    navigate(`/formation-affiche/${sessionId}`);
+    setSessionsPanelId(null);
   };
 
   return (
@@ -176,6 +187,8 @@ const CatalogueFormationsPage: React.FC = () => {
                   void sessionTick;
                   const summary = catalogSessionSummary(f.id);
                   if (!summary.count) return null;
+                  const panelOpen = sessionsPanelId === f.id;
+                  const list = getSessionsForCatalogEntry(f.id);
                   return (
                     <>
                       <span className="catf-st">
@@ -184,6 +197,37 @@ const CatalogueFormationsPage: React.FC = () => {
                       {summary.nextDate ? (
                         <span>prochaine le {formatSessionDateFr(summary.nextDate)}</span>
                       ) : null}
+                      <button
+                        type="button"
+                        className="catf-sess-link"
+                        onClick={() => setSessionsPanelId(panelOpen ? null : f.id)}
+                      >
+                        Voir les sessions →
+                      </button>
+                      {panelOpen && (
+                        <div className="catf-sess-panel">
+                          {list.length === 0 ? (
+                            <div className="catf-muted-sess">Aucune session en cache.</div>
+                          ) : (
+                            list.map((s) => {
+                              const h = sessionHeroStatus(s);
+                              const label =
+                                h === 'in_progress' ? 'EN COURS' : h === 'ended' ? 'TERMINÉE' : 'À VENIR';
+                              return (
+                                <button
+                                  key={s.id}
+                                  type="button"
+                                  className="catf-sess-row"
+                                  onClick={() => openSessionAfficheFromCatalogue(s.id)}
+                                >
+                                  <span>{formatSessionDateFr(s.startDate)} → {formatSessionDateFr(s.endDate)}</span>
+                                  <span className="catf-sess-row-st">{label}</span>
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+                      )}
                     </>
                   );
                 })()

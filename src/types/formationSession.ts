@@ -56,6 +56,16 @@ export interface FormationSession {
   status: FormationSessionStatus;
   /** Formateur a déclaré le début (P4.9 / P4.5). */
   startDeclared: boolean;
+  /** KIN_API_FORMATION_END_CLOSE_V15 — flags projet. */
+  canDeclareEnd?: boolean;
+  canCloseProject?: boolean;
+  activeEndDeclaration?: {
+    declaredAt?: string;
+    note?: string | null;
+    declaredById?: number | null;
+  } | null;
+  /** BE ProjectProofNumber — null until close; never invent on FE. */
+  proofNumber?: string | null;
   attendanceSurveyOptIn: boolean;
   people: FormationSessionPerson[];
   seances: FormationSessionSeance[];

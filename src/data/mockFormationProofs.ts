@@ -5,7 +5,7 @@ const CO_ATTESTANTS = [
     initials: 'AN',
     name: 'Atelier Numérique Formation',
     description: 'Organisme de formation · émettrice',
-    pillLabel: '◆ Qualiopi',
+    pillLabel: '◆ Organisme de formation certifié',
     pillColor: '#FF616F',
     pillBorder: '#FF616F',
     avatarBg: 'rgba(255,97,111,.1)',
@@ -56,7 +56,7 @@ const TIMELINE = [
   {
     date: '27 mars 2027',
     dateColor: '#48A78D',
-    title: 'Clôture de la formation · Preuve Formation® générée',
+    title: 'Clôture de la formation · Preuve Formation générée',
   },
 ];
 
@@ -118,7 +118,7 @@ const ACTOR_TIPS = {
   },
   of: {
     name: 'Atelier Numérique Formation',
-    meta: 'Organisme de formation · émettrice · ◆ Reconnu et certifié par Qualiopi',
+    meta: 'Organisme de formation · émettrice · ◆ Organisme de formation certifié',
     badges: '104 preuves émises',
   },
   dutto: {
@@ -142,7 +142,7 @@ const BASE_PF: Omit<FormationProofData, 'shareToken' | 'level'> = {
   holderInitials: 'NB',
   holderRole: 'Apprenante',
   orgName: 'Atelier Numérique Formation',
-  orgTrust: '◆ Reconnu et certifié par Qualiopi',
+  orgTrust: '◆ Organisme de formation certifié',
   orgTrustColor: '#FF616F',
   calculatedDate: '27 mars 2027',
   hashShort: 'b7e4a1…f293',

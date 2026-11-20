@@ -42,7 +42,7 @@ const ProjectProofCardCompact: React.FC<ProjectProofCardCompactProps> = ({
         />
         <div>
           <div className="pp-compact-ktype" style={{ color: levelStyle.kinshipTypeColor }}>
-            Preuve Projet®
+            Preuve Projet
           </div>
           <div className="pp-compact-kname" style={{ color: levelStyle.kinshipNameColor }}>
             Kinship

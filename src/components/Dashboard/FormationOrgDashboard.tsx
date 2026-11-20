@@ -48,6 +48,7 @@ const FormationOrgDashboard: React.FC = () => {
   const location = useLocation();
   const [tick, setTick] = useState(0);
   const [closeTick, setCloseTick] = useState(0);
+  const [showAllSessions, setShowAllSessions] = useState(false);
   const [loading, setLoading] = useState(true);
   const contextKey =
     location.search ||
@@ -88,8 +89,10 @@ const FormationOrgDashboard: React.FC = () => {
   const sessions = useMemo(() => {
     void tick;
     if (!org) return [];
-    return getFormationSessionsForOrg(org).filter((s) => sessionHeroStatus(s) !== 'ended');
-  }, [tick, org]);
+    const all = getFormationSessionsForOrg(org);
+    if (showAllSessions) return all;
+    return all.filter((s) => sessionHeroStatus(s) !== 'ended');
+  }, [tick, org, showAllSessions]);
 
   const needingStart = useMemo(() => {
     void tick;
@@ -103,7 +106,11 @@ const FormationOrgDashboard: React.FC = () => {
     if (!org) return [];
     return getFormationSessionsForOrg(org).filter((s) => {
       const cm = getSessionCloseMock(s.id);
-      return cm.endDeclared && !cm.closed;
+      const ended = s.status === 'ended' || cm.closed;
+      if (ended) return false;
+      if (s.canCloseProject === true) return true;
+      const endDeclared = Boolean(s.activeEndDeclaration) || cm.endDeclared;
+      return endDeclared;
     });
   }, [tick, closeTick, org]);
 
@@ -177,7 +184,7 @@ const FormationOrgDashboard: React.FC = () => {
 
   // Patrick: if qualiopi_expires_at is null, show nothing (no dash, no « non renseigné »).
   const certiLine = qualiopiExpiresAt
-    ? `Organisme de formation certifié · Qualiopi valide jusqu’au ${formatSessionDateFr(
+    ? `Organisme de formation certifié · Certification valide jusqu’au ${formatSessionDateFr(
         qualiopiExpiresAt
       )}`
     : null;
@@ -264,7 +271,16 @@ const FormationOrgDashboard: React.FC = () => {
       {sessions.length > 0 && (
         <div className="fod-box">
           <div className="fod-sec">
-            <h2>Sessions en cours et à venir</h2>
+            <h2>{showAllSessions ? 'Toutes les sessions' : 'Sessions en cours et à venir'}</h2>
+            {!showAllSessions && (
+              <button
+                type="button"
+                className="fod-lk"
+                onClick={() => setShowAllSessions(true)}
+              >
+                Voir toutes les sessions →
+              </button>
+            )}
           </div>
           {loading && <p className="fod-muted">Chargement…</p>}
           {!loading &&

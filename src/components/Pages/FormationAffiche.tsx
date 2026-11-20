@@ -36,6 +36,7 @@ import { useToast } from '../../hooks/useToast';
 import FunderFollowView from '../FunderView/FunderFollowView';
 import { MOCK_FOLLOW_DEBUTER } from '../../data/mockFunderView';
 import { followViewFromFormation } from '../../utils/funderFollowFromFormation';
+import { funderCardInformedLine } from '../../utils/funderInformedLabel';
 import CloseFormationBirthOverlay from '../Modals/CloseFormationBirthOverlay';
 import AttestFormationModal from '../Modals/AttestFormationModal';
 import './FormationAffiche.css';
@@ -544,7 +545,7 @@ const FormationAffiche: React.FC = () => {
             <b>Si une condition tombe, l’alerte est immédiate</b>
             {qExpired
               ? ` — le compteur est redescendu (${Math.max(0, euFilled - 1)}/${EU_CADRE_TOTAL}) : l’agrément a expiré le ${MOCK_OF_ORG.qualiopiValidUntil}.`
-              : ` — l’agrément Qualiopi expire le ${MOCK_OF_ORG.qualiopiValidUntil}, avant la fin de la formation.`}
+              : ` — la certification de l’organisme expire le ${MOCK_OF_ORG.qualiopiValidUntil}, avant la fin de la formation.`}
           </div>
         </div>
       )}
@@ -587,7 +588,7 @@ const FormationAffiche: React.FC = () => {
               {formation.status === 'ended' && view === 'porteur' && (
                 <>
                   <section className="fa-sec fa-pfblock">
-                    <h3>🛡 Preuve Formation® — générée</h3>
+                    <h3>🛡 Preuve Formation — générée</h3>
                     <div className="fa-pfnum">{formation.proofNumber}</div>
                     <p className="fa-sub">
                       {people.participants.length} participants · {formation.durationHours ?? '—'}{' '}
@@ -599,7 +600,7 @@ const FormationAffiche: React.FC = () => {
                         Exporter PDF
                       </button>
                       <button type="button" className="fa-btn ghost">
-                        Partager avec DGEFP / Qualiopi
+                        Partager pour un contrôle ou un audit
                       </button>
                       <button type="button" className="fa-btn ghost">
                         Vérification publique
@@ -1028,7 +1029,12 @@ const FormationAffiche: React.FC = () => {
                   <div className="fa-av">{f.initials}</div>
                   <div>
                     <b>{f.name}</b>
-                    <div className="fa-sub">financeur · informé du démarrage</div>
+                    <div className="fa-sub">
+                      {funderCardInformedLine({
+                        startedNotifiedAt: f.startedNotifiedAt,
+                        shareMode: f.shareMode,
+                      })}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -1060,7 +1066,7 @@ const FormationAffiche: React.FC = () => {
                     <>
                       {formation.status === 'ended' && (
                         <div className="fa-mypf">
-                          <div className="fa-mypf-h">Kinship · Preuve Formation®</div>
+                          <div className="fa-mypf-h">Kinship · Preuve Formation</div>
                           <div className="fa-mypf-t">{formation.title}</div>
                           <div className="fa-mypf-n">{formation.proofNumber}</div>
                         </div>
@@ -1222,7 +1228,7 @@ const FormationAffiche: React.FC = () => {
             <div className="fa-cpfban" style={{ margin: '0 0 12px' }}>
               ⚠{' '}
               <div>
-                <b>L’agrément Qualiopi a expiré le {MOCK_OF_ORG.qualiopiValidUntil}</b> — après le
+                <b>La certification de l’organisme a expiré le {MOCK_OF_ORG.qualiopiValidUntil}</b> — après le
                 démarrage. Le compteur est redescendu ({Math.max(0, euFilled - 1)}/{EU_CADRE_TOTAL}
                 ). Trois portes, toutes signées :
               </div>

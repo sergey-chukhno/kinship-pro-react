@@ -15,12 +15,37 @@ const MONTHS_FR = [
   'décembre',
 ];
 
-/** ISO YYYY-MM-DD → 17/10/2026 */
+/** ISO YYYY-MM-DD (ou datetime) → 17/10/2026 */
 export function formatDateShortFr(iso?: string): string {
   if (!iso) return '—';
-  const [y, m, d] = iso.split('-');
+  const day = String(iso).includes('T') ? String(iso).slice(0, 10) : String(iso).slice(0, 10);
+  const [y, m, d] = day.split('-');
   if (!y || !m || !d) return iso;
   return `${d}/${m}/${y}`;
+}
+
+/** Map stable API error codes (V15) → FR. Empty string if unknown (caller uses fallback). */
+export function formationEndCloseErrorMessage(code: unknown, fallback: string): string {
+  switch (String(code || '')) {
+    case 'not_in_progress':
+      return 'La session n’est pas en cours.';
+    case 'not_formation':
+      return 'Cette action concerne une session de formation.';
+    case 'not_responsible_trainer':
+      return 'Seul le formateur responsable peut déclarer la fin.';
+    case 'can_close_directly':
+      return 'Votre rôle peut clôturer directement — pas de déclaration de fin.';
+    case 'already_declared':
+      return 'La fin de session est déjà déclarée.';
+    case 'no_active_declaration':
+      return 'Aucune fin de session déclarée.';
+    case 'already_ended':
+      return 'La session est déjà clôturée.';
+    case 'closure_forbidden_for_role':
+      return 'Vous n’êtes pas autorisé à clôturer cette session.';
+    default:
+      return fallback;
+  }
 }
 
 /** ISO → 17 octobre 2026 */
@@ -87,4 +112,21 @@ export function nominativeAccessUntil(closedAtIso?: string): string {
 export function formatProofCodeDisplay(code?: string): string {
   if (!code) return 'PF·····';
   return code.replace(/-/g, '·');
+}
+
+/** Short fingerprint for birth overlay: « 9f3a71…d8b84c · vérifiable ». */
+export function formatProofFingerprint(seed: string): string {
+  const raw = String(seed || 'proof');
+  let h = 2166136261;
+  for (let i = 0; i < raw.length; i += 1) {
+    h ^= raw.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  const hex = (Math.abs(h) >>> 0).toString(16).padStart(8, '0');
+  let h2 = 0;
+  for (let i = raw.length - 1; i >= 0; i -= 1) {
+    h2 = (h2 * 31 + raw.charCodeAt(i)) >>> 0;
+  }
+  const hex2 = h2.toString(16).padStart(8, '0');
+  return `${hex.slice(0, 6)}…${hex2.slice(-6)} · vérifiable`;
 }

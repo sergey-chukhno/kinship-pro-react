@@ -6364,7 +6364,8 @@ const ProjectManagement: React.FC = () => {
         </div>
         <div className="header-right">
           {/* Close project button: only for owner, when project is in progress */}
-          {canOwnerCloseProject(project.status, userProjectRole, isReadOnlyMode) && (
+          {canOwnerCloseProject(project.status, userProjectRole, isReadOnlyMode) &&
+            project.canCloseProject !== false && (
             <button
               type="button"
               className="btn btn-secondary"

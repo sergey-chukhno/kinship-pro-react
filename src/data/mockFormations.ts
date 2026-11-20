@@ -63,7 +63,7 @@ export const MOCK_OF_ORG = {
   name: 'Atelier Numérique Formation',
   kind: 'Organisme de formation',
   initials: 'AN',
-  qualiopiLabel: '◆ Reconnu et certifié par Qualiopi',
+  qualiopiLabel: '◆ Organisme de formation certifié',
   qualiopiValidUntil: '12/03/2027',
   lastVerified: '17/07/2026 06:00',
 };
