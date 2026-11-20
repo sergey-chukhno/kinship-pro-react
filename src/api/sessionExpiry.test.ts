@@ -10,6 +10,7 @@ import {
   isJwtExpired,
   isJwtExpiringSoon,
   isSessionExpiredToastActive,
+  onAxiosClientResponseError,
   shouldHandleUnauthorized,
 } from './sessionExpiry';
 
@@ -119,6 +120,32 @@ describe('sessionExpiry', () => {
       clearAuthStorage();
       expect(localStorage.getItem('jwt_token')).toBeNull();
       expect(localStorage.getItem('selectedContextId')).toBeNull();
+    });
+  });
+
+  describe('onAxiosClientResponseError', () => {
+    it('triggers session expiry on protected 401 then rejects', async () => {
+      localStorage.setItem('jwt_token', 'tok');
+      const err = {
+        response: { status: 401 },
+        config: { url: '/api/v1/projects', baseURL: 'https://api.example' },
+      } as AxiosError;
+
+      await expect(onAxiosClientResponseError(err)).rejects.toBe(err);
+      expect(toast.error).toHaveBeenCalledTimes(1);
+      expect(localStorage.getItem('jwt_token')).toBeNull();
+    });
+
+    it('does not trigger session expiry for login 401', async () => {
+      localStorage.setItem('jwt_token', 'tok');
+      const err = {
+        response: { status: 401 },
+        config: { url: '/api/v1/auth/login', baseURL: 'https://api.example' },
+      } as AxiosError;
+
+      await expect(onAxiosClientResponseError(err)).rejects.toBe(err);
+      expect(toast.error).not.toHaveBeenCalled();
+      expect(localStorage.getItem('jwt_token')).toBe('tok');
     });
   });
 });

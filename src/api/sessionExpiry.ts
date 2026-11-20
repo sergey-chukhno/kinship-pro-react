@@ -62,6 +62,14 @@ export function shouldHandleUnauthorized(error: unknown): boolean {
   return true;
 }
 
+/** Axios response-error hook for `axiosClient` (keeps config.ts thin / testable). */
+export function onAxiosClientResponseError(error: unknown): Promise<never> {
+  if (shouldHandleUnauthorized(error)) {
+    handleSessionExpired();
+  }
+  return Promise.reject(error);
+}
+
 /** Idempotent: one toast + clear storage + event per browser tab cycle. */
 export function handleSessionExpired(): void {
   try {

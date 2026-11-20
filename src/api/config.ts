@@ -1,6 +1,6 @@
 // src/api/axiosClient.ts
 import axios from 'axios';
-import { handleSessionExpired, shouldHandleUnauthorized } from './sessionExpiry';
+import { onAxiosClientResponseError } from './sessionExpiry';
 
 const API_BASE_URL = process.env.REACT_APP_DB_BASE_URL;
 
@@ -33,12 +33,7 @@ axiosClient.interceptors.request.use(
 
 axiosClient.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (shouldHandleUnauthorized(error)) {
-      handleSessionExpired();
-    }
-    return Promise.reject(error);
-  }
+  onAxiosClientResponseError
 );
 
 export default axiosClient;
