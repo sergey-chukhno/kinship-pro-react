@@ -2213,7 +2213,7 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
                       {selectedParticipants.length > 1 ? 's' : ''} —{' '}
                       {proofCount} preuve{proofCount > 1 ? 's' : ''} de compétence
                       {pickedDraft.expertiseIds.length > 0
-                        ? `, chacune portant ${pickedDraft.expertiseIds.length > 1 ? 'les' : 'le'} ${pickedDraft.expertiseIds.length} constat${pickedDraft.expertiseIds.length > 1 ? 's' : ''}.`
+                        ? `, chacune portant ${pickedDraft.expertiseIds.length} constat${pickedDraft.expertiseIds.length > 1 ? 's' : ''}.`
                         : '.'}
                     </>
                   )}

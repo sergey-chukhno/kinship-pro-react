@@ -1287,9 +1287,7 @@ const ProjectAffichePage: React.FC = () => {
           {error && <div className="pa-error">{error}</div>}
 
           <div className="pa-hero">
-            <div className="pa-cover" style={project.image ? { backgroundImage: `url(${project.image})` } : undefined}>
-              {!project.image && <span className="ph">couverture — 2 photos max</span>}
-            </div>
+            <div className="pa-cover" style={project.image ? { backgroundImage: `url(${project.image})` } : undefined} />
             <div className="pa-hbody">
               <div className="pa-staterow">
                 <span className={`pa-chip ${status.cls}`}>{status.label}</span>
@@ -1326,8 +1324,14 @@ const ProjectAffichePage: React.FC = () => {
                 </button>
               )}
               <div className="pa-metarow">
-                <span>👥 {participantCount} participants</span>
-                <span>🏅 {proofCount} preuves de compétences</span>
+                <span>
+                  👥 {participantCount} participant{participantCount === 1 ? '' : 's'}
+                </span>
+                {proofCount > 0 && (
+                  <span>
+                    🏅 {proofCount} preuve{proofCount > 1 ? 's' : ''} de compétences
+                  </span>
+                )}
               </div>
               {(project.pathways || []).length > 0 && (
                 <>
