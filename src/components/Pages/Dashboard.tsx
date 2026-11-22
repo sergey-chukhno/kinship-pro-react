@@ -1872,13 +1872,13 @@ const Dashboard: React.FC = () => {
             {state.showingPageType === 'pro' && (
               <div className="flex gap-2 items-center">
                 <img src="/icons_logo/Icon=Tableau de bord.svg" alt="Tableau de bord" className="section-icon" />
-                <span>{isFunderDashboard ? 'Tableau de bord financeur' : `Tableau de bord de ${organizationDisplayName}`}</span>
+                <span>{isFunderDashboard ? 'Tableau de bord financeur' : `Tableau de bord — ${organizationDisplayName}`}</span>
               </div>
             )}
             {state.showingPageType !== 'teacher' && state.showingPageType !== 'pro' && (
               <div className="flex gap-2 items-center">
                 <img src="/icons_logo/Icon=Tableau de bord.svg" alt="Tableau de bord" className="section-icon" />
-                <span>Tableau de bord de {organizationDisplayName}</span>
+                <span>Tableau de bord — {organizationDisplayName}</span>
               </div>
             )}
           </div>

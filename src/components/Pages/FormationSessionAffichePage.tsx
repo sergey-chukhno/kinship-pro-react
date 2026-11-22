@@ -248,7 +248,11 @@ const FormationSessionAffichePage: React.FC = () => {
     session.attendanceSurveyOptIn &&
     !sessionClosed;
   const showCreateSeanceCta =
-    viewerRole === 'structure' && !isResponsibleTrainer && !endDeclared && !sessionClosed;
+    viewerRole === 'structure' &&
+    !isResponsibleTrainer &&
+    !endDeclared &&
+    !sessionClosed &&
+    hero !== 'ended';
 
   const openClosePanel = async () => {
     const juryDecisions: Record<string, 'valid' | 'invalid'> = {};
@@ -543,7 +547,7 @@ const FormationSessionAffichePage: React.FC = () => {
           <>
             <div className="fsa-rowhead">
               <h3 className="fsa-h">Séances ({session.seances.length})</h3>
-              {viewerRole === 'structure' && (
+              {showCreateSeanceCta && (
                 <button
                   type="button"
                   className="fa-btn ghost"

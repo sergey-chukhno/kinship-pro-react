@@ -113,7 +113,7 @@ const INNER_AFFICHE_TABS_BASE: [AfficheTab, string][] = [
   ['requests', 'Demandes'],
   ['participants', 'Participants'],
   ['teams', 'Équipes'],
-  ['proofs', 'Preuves de compétences'],
+  ['proofs', 'Preuves de compétence'],
   ['documents', 'Documents'],
 ];
 
@@ -1329,7 +1329,7 @@ const ProjectAffichePage: React.FC = () => {
                 </span>
                 {proofCount > 0 && (
                   <span>
-                    🏅 {proofCount} preuve{proofCount > 1 ? 's' : ''} de compétences
+                    🏅 {proofCount} preuve{proofCount > 1 ? 's' : ''} de compétence
                   </span>
                 )}
               </div>
@@ -1558,10 +1558,6 @@ const ProjectAffichePage: React.FC = () => {
                         </button>
                       )}
                     </div>
-                    {funders.length === 0 && !canGovern && <div className="pa-finrow">Aucun financeur rattaché.</div>}
-                    {funders.length === 0 && canGovern && addPanel !== 'funder' && (
-                      <div className="pa-finrow">Aucun financeur — visible par l’équipe et les partenaires, jamais par les visiteurs.</div>
-                    )}
                     {funders.map((f) => (
                       <div key={f.id} className="pa-erow">
                         <div className="pa-logo">{f.initials || initialsOf(f.name)}</div>
@@ -1577,7 +1573,12 @@ const ProjectAffichePage: React.FC = () => {
                         </div>
                       </div>
                     ))}
-                    <div className="pa-graygl">Visible par l’équipe et les partenaires — jamais par les visiteurs. Un financeur n’est pas un partenaire.</div>
+                    {funders.length > 0 && (
+                      <div className="pa-graygl">
+                        Visible par l’équipe et les partenaires — jamais par les visiteurs. Un
+                        financeur n’est pas un partenaire.
+                      </div>
+                    )}
                   </>
                 )}
               </>
@@ -1630,7 +1631,7 @@ const ProjectAffichePage: React.FC = () => {
                     </div>
                     <div className="pa-kpi">
                       <div className="n">{proofCount}</div>
-                      <div className="l">Preuves de compétences</div>
+                      <div className="l">Preuves de compétence</div>
                       <span className="t">{stats?.badges.this_month ? `+${stats.badges.this_month} ce mois` : 'Attestées'}</span>
                     </div>
                   </div>
@@ -1971,7 +1972,7 @@ const ProjectAffichePage: React.FC = () => {
 
               {canSeeInner && tab === 'proofs' && (
                 <div className="pa-sec">
-                  <h4>Preuves de compétences attestées ({filteredBadges.length})</h4>
+                  <h4>Preuves de compétence attestées ({filteredBadges.length})</h4>
                   <div className="pa-filters">
                     <div className="pa-fbox">
                       <b>Par série</b>
