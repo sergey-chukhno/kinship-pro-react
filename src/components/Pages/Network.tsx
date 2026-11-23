@@ -70,6 +70,8 @@ interface Company {
   logo_url: string | null;
   email?: string | null;
   members_count?: number;
+  /** API may send slug string or `{ name }` — used for FR labels (Lot3 11e). */
+  company_type?: string | { name?: string } | null;
 }
 
 // NetworkUser interface for API response
