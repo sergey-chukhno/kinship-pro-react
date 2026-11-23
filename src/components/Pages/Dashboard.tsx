@@ -1639,7 +1639,7 @@ const Dashboard: React.FC = () => {
         </div>
         {isUnder15(state.user?.birthday) && (
           <div className="checkin-alert" style={{ margin: '0 0 1rem', backgroundColor: '#e0f2fe', borderColor: '#0ea5e9', color: '#0c4a6e' }}>
-            Vous avez moins de 15 ans. Votre compte dispose de fonctionnalités limitées. Vous pouvez toutefois participer aux projets de vos établissements ou organisations et recevoir des preuves de compétences.
+            Vous participez aux projets de vos établissements et organisations, et vous recevez vos preuves de compétences.
           </div>
         )}
         {FEATURE_PIK_REMISE && showPikEncart && (

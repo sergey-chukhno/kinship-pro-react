@@ -10,6 +10,7 @@ import { acceptSchoolMember, getSchoolMembersPending, removeSchoolMember } from 
 import { useToast } from '../../hooks/useToast';
 import { translateSkill, translateSubSkill, SKILLS_FR, SUB_SKILLS_FR } from '../../translations/skills';
 import { getSelectedOrganizationId } from '../../utils/contextUtils';
+import { translateRole } from '../../utils/roleTranslations';
 
 interface MembershipRequest {
   id: string;
@@ -108,7 +109,9 @@ const MembershipRequests: React.FC = () => {
                 firstName: profile.first_name,
                 lastName: profile.last_name,
                 email: profile.email,
-                profession: profile.role_in_system || 'Non renseigné',
+                profession: profile.role_in_system
+                  ? translateRole(profile.role_in_system)
+                  : 'Non renseigné',
                 avatar: profile.avatar_url || m.avatar_url || DEFAULT_AVATAR_SRC,
                 requestedDate: profile.joined_at || new Date().toISOString(),
                 skills: (() => {

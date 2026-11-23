@@ -193,7 +193,13 @@ function memberId(member: any): string {
 }
 
 function orgRoleLabel(member: any): string {
-  const role = member?.role || member?.organization_role || member?.user?.role || '';
+  const role =
+    member?.role_in_system ||
+    member?.user?.role_in_system ||
+    member?.role ||
+    member?.organization_role ||
+    member?.user?.role ||
+    '';
   return role ? translateRole(role) : 'Membre';
 }
 
@@ -761,8 +767,8 @@ const ProjectAffichePage: React.FC = () => {
       setMembers(Array.isArray(mem) ? mem : []);
       refreshStats();
       setPersonQuery('');
-      setAddedFlash(`${memberName(person)} ajouté — ${role}, automatiquement.`);
-      showSuccess(`${memberName(person)} ajouté.`);
+      setAddedFlash(`${memberName(person)} rejoint le projet — ${role}, automatiquement.`);
+      showSuccess(`${memberName(person)} rejoint le projet.`);
     } catch (e: any) {
       showError(e?.response?.data?.message || 'Impossible d’ajouter cette personne.');
     }
@@ -808,7 +814,7 @@ const ProjectAffichePage: React.FC = () => {
       setMembers(Array.isArray(mem) ? mem : []);
       refreshStats();
       const name = `${prepFirst.trim()} ${prepLast.trim()}`;
-      setAddedFlash(`${name} ajouté — Participant, automatiquement.`);
+      setAddedFlash(`${name} rejoint le projet — Participant, automatiquement.`);
       setPrepFirst('');
       setPrepLast('');
       setPrepBirth('');
@@ -1410,7 +1416,7 @@ const ProjectAffichePage: React.FC = () => {
                   </div>
                 ))}
                 {(project.coResponsibles || []).length > 0 && (
-                  <div className="pa-graygl">Il ajoute des membres de son organisation uniquement et atteste des compétences.</div>
+                  <div className="pa-graygl">Ajoute des membres de son organisation uniquement et atteste des compétences.</div>
                 )}
 
                 <div className="pa-elabel">
@@ -1711,7 +1717,7 @@ const ProjectAffichePage: React.FC = () => {
                     )}
                   </h4>
                   {isCoOwner && !isOwner && (
-                    <p className="pa-hint">Elle voit tous les participants — seul l’ajout est cloisonné à son organisation.</p>
+                    <p className="pa-hint">Voit tous les participants — seul l’ajout est cloisonné à son organisation.</p>
                   )}
                   <div className="pa-vswitch">
                     <button type="button" className={`pa-vsw ${participantView === 'cards' ? 'on' : ''}`} onClick={() => setParticipantView('cards')}>▦ Cartes</button>

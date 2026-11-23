@@ -9,6 +9,7 @@ import { getTeacherClasses } from '../../api/Dashboard';
 import { useAppContext } from '../../context/AppContext';
 import { useToast } from '../../hooks/useToast';
 import { getSelectedSchoolId } from '../../utils/contextUtils';
+import { translateRole } from '../../utils/roleTranslations';
 import QRCodePrintModal from './QRCodePrintModal';
 import AvatarImage from '../UI/AvatarImage';
 
@@ -18,20 +19,35 @@ interface AddMemberModalProps {
   onSuccess?: () => void;
 }
 
-// Traduction identique à celle de PersonalUserRegisterForm.tsx pour l'affichage
-const tradFR: Record<string, string> = {
-  parent: "Parent",
-  grand_parent: "Grand-parent",
-  children: "Enfant",
-  voluntary: "Volontaire",
-  tutor: "Tuteur",
-  employee: "Salarié",
-  other: "Autre",
-  // Garder des fallbacks pour l'ancien système au cas où
-  admin: "Admin",
-  referent: "Référent",
-  member: "Membre"
-};
+const STUDENT_CREATE_ERROR_GENERIC = "La création de l'élève n'a pas abouti.";
+
+function isLikelyEnglishApiMessage(message?: string | null): boolean {
+  if (!message) return true;
+  return /an error occurred|error while creating|while creating the student|failed to/i.test(message);
+}
+
+function frenchDetailsFromApi(details: unknown): string | null {
+  if (!details) return null;
+  if (typeof details === 'string') {
+    const t = details.trim();
+    if (!t || isLikelyEnglishApiMessage(t)) return null;
+    return t;
+  }
+  if (Array.isArray(details)) {
+    const parts = details
+      .map((d) => (typeof d === 'string' ? d.trim() : ''))
+      .filter((d) => d && !isLikelyEnglishApiMessage(d));
+    return parts.length > 0 ? parts.join(' ') : null;
+  }
+  if (typeof details === 'object') {
+    const parts = Object.values(details as Record<string, unknown>)
+      .flatMap((v) => (Array.isArray(v) ? v : [v]))
+      .map((v) => (typeof v === 'string' ? v.trim() : ''))
+      .filter((d) => d && !isLikelyEnglishApiMessage(d));
+    return parts.length > 0 ? parts.join(' ') : null;
+  }
+  return null;
+}
 
 /** Set to true to show the INE (Identifiant National Élève) field again. */
 const SHOW_INE_FIELD = false;
@@ -528,7 +544,14 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
         showError(INE_ERROR_FORMAT);
       } else {
         setIneError(null);
-        showError(message || "Erreur lors de l'enregistrement de l'étudiant.");
+        const fromDetails = frenchDetailsFromApi(details);
+        if (fromDetails) {
+          showError(fromDetails);
+        } else if (message && !isLikelyEnglishApiMessage(message)) {
+          showError(message);
+        } else {
+          showError(STUDENT_CREATE_ERROR_GENERIC);
+        }
       }
     }
   };
@@ -748,7 +771,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
                 ) : levels.length > 0 ? (
                   levels.map((level) => (
                     <option key={level.id} value={level.id.toString()}>
-                      {level.name} {level.level ? `- ${level.level}` : ''}
+                      {String(level.name || '').split(/\s+-\s+/)[0].trim() || level.name}
                     </option>
                   ))
                 ) : (
@@ -771,7 +794,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
                 {apiRoles.length > 0 ? (
                   apiRoles.map((role) => (
                     <option key={role.value} value={role.value}>
-                      {tradFR[role.value] || role.value}
+                      {translateRole(role.value)}
                     </option>
                   ))
                 ) : (

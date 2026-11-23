@@ -48,10 +48,12 @@ function addButtonLabel(
       existingParticipantIds
     );
     if (sync.length > 0 && missing === 0) return 'Dans le projet';
-    if (missing > 0) return `Ajouter les ${missing}`;
+    if (missing === 1) return "Ajouter l'élève";
+    if (missing > 1) return `Ajouter les ${missing}`;
   }
   const count = typeof cls.students_count === 'number' ? cls.students_count : null;
-  if (count != null) return `Ajouter les ${count}`;
+  if (count === 1) return "Ajouter l'élève";
+  if (count != null && count >= 2) return `Ajouter les ${count}`;
   return 'Ajouter la classe';
 }
 
