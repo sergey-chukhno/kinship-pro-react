@@ -199,7 +199,7 @@ const FormationOrgDashboard: React.FC = () => {
         <div>
           <h1 className="fod-hello">Bonjour {firstName} !</h1>
           <div className="fod-who">
-            Tableau de bord de {orgName}
+            Tableau de bord — {orgName}
             {certiLine ? <span className="fod-trust">{certiLine}</span> : null}
           </div>
         </div>

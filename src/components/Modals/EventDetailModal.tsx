@@ -325,29 +325,22 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
           )}
         </div>
 
-        {/* Main Content: Image Left, Description Right */}
-        <div className="event-detail-main-content">
-          {/* Left: Image */}
-          <div className="overflow-hidden event-detail-image-container">
-
+        {/* Main Content: Image Left, Description Right — empty blocks hidden (Patrick lot2). */}
+        {(event.image || (event.description && String(event.description).trim())) && (
+          <div className="event-detail-main-content">
             {event.image ? (
-              <img src={event.image} alt={event.title} className="event-detail-hero-image" />
-            ) : (
-              <div className="event-detail-image-placeholder">
-                <i className="fas fa-image"></i>
-                <span>Aucune image</span>
+              <div className="overflow-hidden event-detail-image-container">
+                <img src={event.image} alt={event.title} className="event-detail-hero-image" />
               </div>
-            )}
+            ) : null}
+            {event.description && String(event.description).trim() ? (
+              <div className="event-detail-description-container">
+                <h3 className="description-title">Description</h3>
+                <p className="description-text">{event.description}</p>
+              </div>
+            ) : null}
           </div>
-
-          {/* Right: Description */}
-          <div className="event-detail-description-container">
-            <h3 className="description-title">Description</h3>
-            <p className="description-text">
-              {event.description || "Aucune description disponible."}
-            </p>
-          </div>
-        </div>
+        )}
 
         {/* Badges Section */}
         {eventBadges.length > 0 && (
@@ -477,12 +470,11 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
           </div>
         )}
 
-        {/* Participants Section */}
-        
+        {/* Participants Section — hide entirely when empty (Patrick lot2). */}
+        {event.participants && event.participants.length > 0 && (
           <div className="bg-white event-detail-participants-section">
             <h3 className="participants-title">Participants ({event.participants.length})</h3>
             <div className="participants-list-container">
-              {event.participants && event.participants.length > 0 ? (
                 <div className="participants-list-redesigned">
                   {event.participants.map((participant, index) => {
                     const participantObj = typeof participant === 'object' ? participant : null;
@@ -587,11 +579,9 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
                     );
                   })}
                 </div>
-              ) : (
-                <div className="no-participants">Aucun participant</div>
-              )}
             </div>
           </div>
+        )}
       
       </div>
 
