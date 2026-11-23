@@ -40,7 +40,7 @@ export function followViewFromFormation(
           kind: 'next',
           title: '→ Séance 1',
           meta: formation.startDate
-            ? `${formation.startDate.split('-').reverse().join('/')} · 9h00—12h30`
+            ? formation.startDate.split('-').reverse().join('/')
             : '',
           recap: '— la prochaine',
         },

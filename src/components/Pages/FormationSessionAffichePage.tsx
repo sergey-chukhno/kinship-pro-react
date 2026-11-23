@@ -569,7 +569,7 @@ const FormationSessionAffichePage: React.FC = () => {
                       <div className="fa-sub">
                         {[
                           formatSessionDateFr(s.dateIso),
-                          s.timeRange,
+                          // Hours hidden until BE persists them (Patrick 23/11).
                           s.place,
                         ]
                           .filter(Boolean)

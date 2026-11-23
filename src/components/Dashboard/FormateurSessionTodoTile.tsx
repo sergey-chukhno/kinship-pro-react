@@ -144,7 +144,7 @@ const FormateurSessionTodoTile: React.FC = () => {
         id: `pres-${presenceSession.id}`,
         accent: '#115E59',
         kicker: seance
-          ? `Aujourd'hui · ${seance.timeRange.split('—')[0]?.trim() || '9h00'}${seance.place ? ` — ${seance.place}` : ''}`
+          ? `Aujourd'hui · ${formatSessionDateFr(seance.dateIso)}${seance.place ? ` — ${seance.place}` : ''}`
           : "Aujourd'hui",
         title: seance ? seance.label : 'Séance du jour',
         sub: formatParticipantLine(pCount, presenceSession.title),

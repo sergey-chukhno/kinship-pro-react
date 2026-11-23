@@ -209,7 +209,6 @@ export function projectToFormationSession(
         id: `seance-${p.id}-1`,
         label: 'Séance 1',
         dateIso: startDate,
-        timeRange: '09h00 — 12h30',
         status: 'planned',
       },
     ],

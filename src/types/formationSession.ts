@@ -28,7 +28,8 @@ export interface FormationSessionSeance {
   id: string;
   label: string;
   dateIso: string;
-  timeRange: string;
+  /** Omitted until BE persists hours (Patrick: date only, no fake 09h00—12h30). */
+  timeRange?: string;
   status: 'planned' | 'open' | 'closed' | 'cancelled';
   place?: string;
 }
