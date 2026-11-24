@@ -28,6 +28,7 @@ import { getCatalogueFlags } from '../../api/FormationCatalogue';
 import { resolveCatalogueOrg } from '../../api/formationCatalogOrg';
 import { CatalogueServerFlags } from '../../types/formationCatalogue';
 import { getEuMcGateCheckboxLabel } from '../../utils/euMcGateCopy';
+import { translateOrgType } from '../../utils/orgTypeLabels';
 import './CreateProjectPage.css';
 
 type CreateKind = 'project' | 'stage' | 'formation';
@@ -65,7 +66,8 @@ function orgInitials(name: string): string {
 }
 
 function orgSubtitle(org: OrganizationContext, fallback: string): string {
-  return org.school_type || org.company_type || fallback;
+  const raw = org.school_type || org.company_type || '';
+  return translateOrgType(raw) || fallback;
 }
 
 function fromOrg(org: OrganizationContext, fallback: string): CarrierOrg {

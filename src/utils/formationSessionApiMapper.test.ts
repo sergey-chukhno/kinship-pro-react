@@ -48,6 +48,21 @@ describe('formationSessionApiMapper', () => {
     expect(session.formateur.userId).toBe(7);
     expect(session.modality).toBe('presentiel');
     expect(session.financement).toBe('CPF');
+    expect(session.hasFunders).toBe(false);
+  });
+
+  it('maps has_funders onto session.hasFunders', () => {
+    const withFunders = projectToFormationSession({
+      id: 2,
+      title: 'Y',
+      status: 'coming',
+      start_date: '2026-10-01',
+      end_date: '2026-10-10',
+      formation_catalog_entry_id: 'e1',
+      responsible_trainer_id: 2,
+      has_funders: true,
+    });
+    expect(withFunders.hasFunders).toBe(true);
   });
 
   it('sets EN COURS when start_declared_at is present', () => {

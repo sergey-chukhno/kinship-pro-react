@@ -67,6 +67,8 @@ export interface FormationSession {
   } | null;
   /** BE ProjectProofNumber — null until close; never invent on FE. */
   proofNumber?: string | null;
+  /** BE has_funders — gate « financeur associé est informé » on declare start. */
+  hasFunders?: boolean;
   attendanceSurveyOptIn: boolean;
   people: FormationSessionPerson[];
   seances: FormationSessionSeance[];

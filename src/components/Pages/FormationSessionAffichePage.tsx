@@ -636,8 +636,11 @@ const FormationSessionAffichePage: React.FC = () => {
               {formatSessionDateFr(session.startDate)} au {formatSessionDateFr(session.endDate)}.
             </p>
             <div className="fa-fige">
-              Les participants sont informés. Le financeur associé est informé du début. Les dates ne
-              se modifient plus.
+              Les participants sont informés.
+              {session.hasFunders
+                ? ' Le financeur associé est informé du début.'
+                : ''}{' '}
+              Les dates ne se modifient plus.
             </div>
             <div className="fa-dialog-actions">
               <button type="button" className="fa-btn ghost" onClick={() => setDeclareOpen(false)}>

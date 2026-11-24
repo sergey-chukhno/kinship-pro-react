@@ -291,7 +291,7 @@ const OrganizationsSection: React.FC = () => {
 
           {/* Add Company */}
           <div className="add-organization">
-            <h4>Rejoindre une entreprise</h4>
+            <h4>Rejoindre une organisation</h4>
             <div className="search-container">
               <input
                 type="text"
@@ -334,7 +334,7 @@ const OrganizationsSection: React.FC = () => {
 
           {/* My Companies */}
           <div className="my-organizations">
-            <h4>Mes entreprises</h4>
+            <h4>Mes organisations</h4>
             {companies.length === 0 ? (
               <p className="no-organizations">Aucune entreprise associée</p>
             ) : (

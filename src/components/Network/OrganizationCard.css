@@ -223,6 +223,8 @@
 .organization-hover-actions {
   position: relative;
   display: flex !important;
+  flex-wrap: wrap;
+  align-items: stretch;
   gap: 8px;
   margin-top: 12px;
   padding: 12px 0 0 0;
@@ -236,6 +238,8 @@
   padding-bottom: 0;
   border-top: none;
   overflow: hidden;
+  box-sizing: border-box;
+  width: 100%;
   transition: opacity 0.2s ease, visibility 0.2s ease, max-height 0.3s ease, margin-top 0.2s ease, padding-top 0.2s ease, padding-bottom 0.2s ease, border-top 0.2s ease;
   pointer-events: none;
   z-index: 1;
@@ -245,7 +249,7 @@
 .organization-card.has-hover-actions:hover .organization-hover-actions {
   opacity: 1 !important;
   visibility: visible !important;
-  max-height: 100px !important;
+  max-height: 160px !important;
   margin-top: 12px !important;
   padding-top: 12px !important;
   padding-bottom: 0 !important;
@@ -253,7 +257,8 @@
   pointer-events: auto !important;
   z-index: 1 !important;
   display: flex !important;
-  overflow: visible !important;
+  flex-wrap: wrap !important;
+  overflow: hidden !important;
 }
 
 /* Ensure hover actions are always visible on hover, regardless of card type */
@@ -270,24 +275,34 @@
   opacity: 1 !important;
   visibility: visible !important;
   display: flex !important;
-  max-height: 100px !important;
-  overflow: visible !important;
+  flex-wrap: wrap !important;
+  max-height: 160px !important;
+  overflow: hidden !important;
 }
 
 .btn-hover-action {
-  flex: 1;
+  flex: 1 1 calc(50% - 4px);
+  min-width: 0;
+  max-width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 10px 16px;
+  gap: 6px;
+  padding: 10px 12px;
   border: none;
   border-radius: 8px;
   font-size: 0.85rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
-  white-space: nowrap;
+  white-space: normal;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.btn-hover-action span {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .btn-hover-action i {

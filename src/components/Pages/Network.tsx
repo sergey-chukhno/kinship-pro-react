@@ -27,6 +27,7 @@ import { useToast } from '../../hooks/useToast';
 import { translateSkill } from '../../translations/skills';
 import { isUnder15 } from '../../utils/ageUtils';
 import { resolveMemberBadgeCount } from '../../utils/memberBadgeCount';
+import { companyTypeRaw, translateOrgType } from '../../utils/orgTypeLabels';
 import './Network.css';
 
 interface Organization {
@@ -69,6 +70,8 @@ interface Company {
   logo_url: string | null;
   email?: string | null;
   members_count?: number;
+  /** API may send slug string or `{ name }` — used for FR labels (Lot3 11e). */
+  company_type?: string | { name?: string } | null;
 }
 
 // NetworkUser interface for API response
@@ -1897,11 +1900,14 @@ const Network: React.FC = () => {
   // Branch requests will be validated separately to ensure same-type only
   const searchResultsAsOrganizations: Organization[] = useMemo(() => [
     // Convert schools (show all for all dashboards)
-    ...searchResults.schools.map((school: any) => ({
+    ...searchResults.schools.map((school: any) => {
+      const typeLabel = translateOrgType(school.school_type) || 'Établissement scolaire';
+      const place = `${school.city || ''} ${school.zip_code ? `(${school.zip_code})` : ''}`.trim();
+      return {
       id: String(school.id),
       name: school.name || 'Établissement scolaire',
       type: 'schools' as const,
-      description: `${school.school_type || 'Établissement scolaire'} - ${school.city || ''} ${school.zip_code ? `(${school.zip_code})` : ''}`.trim(),
+      description: place ? `${typeLabel} - ${place}` : typeLabel,
       members_count: school.members_count || 0,
       location: school.city && school.zip_code ? `${school.city}, ${school.zip_code}` : school.city || school.zip_code || '',
       logo: school.logo_url || undefined,
@@ -1911,13 +1917,19 @@ const Network: React.FC = () => {
       email: school.email || '',
       take_trainee: school.take_trainee,
       propose_workshop: school.propose_workshop
-    })),
+    };
+    }),
     // Convert companies (show all for all dashboards)
-    ...searchResults.companies.map((company: any) => ({
+    ...searchResults.companies.map((company: any) => {
+      const typeLabel = translateOrgType(companyTypeRaw(company));
+      const place = `${company.city || ''} ${company.zip_code ? `(${company.zip_code})` : ''}`.trim();
+      return {
       id: String(company.id),
       name: company.name || 'Organisation',
       type: 'companies' as const,
-      description: `${company.city || ''} ${company.zip_code ? `(${company.zip_code})` : ''}`.trim() || 'Organisation',
+      description: typeLabel
+        ? (place ? `${typeLabel} - ${place}` : typeLabel)
+        : (place || 'Organisation'),
       members_count: company.members_count || 0,
       location: company.city && company.zip_code ? `${company.city}, ${company.zip_code}` : company.city || company.zip_code || '',
       logo: company.logo_url || undefined,
@@ -1927,7 +1939,8 @@ const Network: React.FC = () => {
       email: company.email || '',
       take_trainee: company.take_trainee,
       propose_workshop: company.propose_workshop
-    }))
+    };
+    })
   ], [searchResults.schools, searchResults.companies]);
   
   // Filter search results by propositions if filters are active
@@ -1961,11 +1974,16 @@ const Network: React.FC = () => {
   }, [searchResultsAsOrganizations, filterStage, filterWorkshop]);
 
   // Convert schools to organization-like format for display
-  const schoolsAsOrganizations: Organization[] = filteredSchools.map(school => ({
+  const schoolsAsOrganizations: Organization[] = filteredSchools.map(school => {
+    const typeLabel = translateOrgType(school.school_type) || 'Établissement scolaire';
+    const place = school.city && school.zip_code
+      ? `${school.city} (${school.zip_code})`
+      : (school.city || school.zip_code || '');
+    return {
     id: String(school.id),
     name: school.name,
     type: 'schools' as const,
-    description: `${school.school_type} - ${school.city} (${school.zip_code})`,
+    description: place ? `${typeLabel} - ${place}` : typeLabel,
     members_count: school.members_count || 0,
     location: `${school.city}, ${school.zip_code}`,
     logo: school.logo_url || undefined,
@@ -1973,14 +1991,18 @@ const Network: React.FC = () => {
     joinedDate: '',
     contactPerson: '',
     email: school.email || ''
-  }));
+  };
+  });
 
   // Convert companies to organization-like format for display
-  const companiesAsOrganizations: Organization[] = filteredCompanies.map(company => ({
+  const companiesAsOrganizations: Organization[] = filteredCompanies.map(company => {
+    const typeLabel = translateOrgType(companyTypeRaw(company));
+    const place = company.city && company.zip_code ? `${company.city} (${company.zip_code})` : (company.city || company.zip_code || '');
+    return {
     id: String(company.id),
     name: company.name,
     type: 'companies' as const,
-    description: company.city && company.zip_code ? `${company.city} (${company.zip_code})` : 'Entreprise',
+    description: typeLabel ? (place ? `${typeLabel} - ${place}` : typeLabel) : (place || 'Organisation'),
     members_count: company.members_count || 0,
     location: company.city && company.zip_code ? `${company.city}, ${company.zip_code}` : '',
     logo: company.logo_url || undefined,
@@ -1988,7 +2010,8 @@ const Network: React.FC = () => {
     joinedDate: '',
     contactPerson: '',
     email: company.email || ''
-  }));
+  };
+  });
 
   // Convert partners to organization-like format for display
   const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
@@ -2533,7 +2556,7 @@ const Network: React.FC = () => {
             id: String(school.id),
             name: school.name || 'École',
             type: 'schools' as const,
-            description: school.school_type || '',
+            description: translateOrgType(school.school_type) || '',
             members_count: school.members_count || 0,
             location: school.city || '',
             logo: school.logo_url || '',
@@ -2548,7 +2571,7 @@ const Network: React.FC = () => {
             id: String(company.id),
             name: company.name || 'Entreprise',
             type: 'companies' as const,
-            description: company.company_type?.name || '',
+            description: translateOrgType(companyTypeRaw(company)) || '',
             members_count: company.members_count || 0,
             location: company.city || '',
             logo: company.logo_url || '',

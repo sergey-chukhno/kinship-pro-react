@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { searchOrganizations } from '../../api/RegistrationRessource';
+import { companyTypeRaw, translateOrgType } from '../../utils/orgTypeLabels';
 import './Modal.css';
 
 export interface SelectPartnerOrganization {
@@ -27,11 +28,13 @@ interface SelectPartnerModalProps {
 const DEBOUNCE_MS = 300;
 
 function mapSchoolToOrg(school: any): SelectPartnerOrganization {
+  const typeLabel = translateOrgType(school.school_type) || 'Établissement scolaire';
+  const place = `${school.city || ''} ${school.zip_code ? `(${school.zip_code})` : ''}`.trim();
   return {
     id: String(school.id),
     name: school.name || 'Établissement scolaire',
     type: 'schools',
-    description: `${school.school_type || 'Établissement scolaire'} - ${school.city || ''} ${school.zip_code ? `(${school.zip_code})` : ''}`.trim(),
+    description: place ? `${typeLabel} - ${place}` : typeLabel,
     members_count: school.members_count || 0,
     location: school.city && school.zip_code ? `${school.city}, ${school.zip_code}` : school.city || school.zip_code || '',
     logo: school.logo_url || undefined,
@@ -43,11 +46,15 @@ function mapSchoolToOrg(school: any): SelectPartnerOrganization {
 }
 
 function mapCompanyToOrg(company: any): SelectPartnerOrganization {
+  const typeLabel = translateOrgType(companyTypeRaw(company));
+  const place = `${company.city || ''} ${company.zip_code ? `(${company.zip_code})` : ''}`.trim();
   return {
     id: String(company.id),
     name: company.name || 'Organisation',
     type: 'companies',
-    description: `${company.city || ''} ${company.zip_code ? `(${company.zip_code})` : ''}`.trim() || 'Organisation',
+    description: typeLabel
+      ? (place ? `${typeLabel} - ${place}` : typeLabel)
+      : (place || 'Organisation'),
     members_count: company.members_count || 0,
     location: company.city && company.zip_code ? `${company.city}, ${company.zip_code}` : company.city || company.zip_code || '',
     logo: company.logo_url || undefined,
@@ -189,8 +196,7 @@ const SelectPartnerModal: React.FC<SelectPartnerModalProps> = ({
                 >
                   <span style={{ fontWeight: 600 }}>{org.name}</span>
                   <span style={{ display: 'block', fontSize: '0.875rem', color: '#6b7280', marginTop: '4px' }}>
-                    {org.type === 'schools' ? 'Établissement scolaire' : 'Organisation'}
-                    {org.location ? ` • ${org.location}` : ''}
+                    {org.description || (org.type === 'schools' ? 'Établissement scolaire' : 'Organisation')}
                   </span>
                 </button>
               ))}

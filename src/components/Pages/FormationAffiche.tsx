@@ -451,8 +451,11 @@ const FormationAffiche: React.FC = () => {
               {formatFr(formation.startDate)} au {formatFr(formation.endDate)}.
             </p>
             <div className="fa-fige">
-              Les participants sont informés. Le financeur associé est informé du début. Les dates ne
-              se modifient plus.
+              Les participants sont informés.
+              {liveSession.hasFunders
+                ? ' Le financeur associé est informé du début.'
+                : ''}{' '}
+              Les dates ne se modifient plus.
             </div>
             <div className="fa-dialog-actions">
               <button type="button" className="fa-btn ghost" onClick={() => setDeclareStartOpen(false)}>

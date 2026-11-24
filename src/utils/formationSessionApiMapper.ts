@@ -202,6 +202,7 @@ export function projectToFormationSession(
         }
       : null,
     proofNumber: extractProofNumber(p),
+    hasFunders: Boolean(p.has_funders),
     attendanceSurveyOptIn: false,
     people,
     seances: [
