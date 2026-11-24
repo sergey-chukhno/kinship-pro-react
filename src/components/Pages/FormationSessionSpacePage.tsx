@@ -317,7 +317,7 @@ const FormationSessionSpacePage: React.FC = () => {
               </>
             ) : null}
             <button type="button" className="fss-seeaff" onClick={goAffiche}>
-              Voir l&apos;affiche →
+              Voir la fiche de la session →
             </button>
           </div>
           <div className="fss-hnote">{hnote}</div>
@@ -518,7 +518,7 @@ const FormationSessionSpacePage: React.FC = () => {
                   📅 Planifier les séances →
                 </button>
                 <p className="fss-sub">
-                  Les séances se créent et se tiennent sur l&apos;affiche de la session (onglet
+                  Les séances se créent et se tiennent sur la fiche de la session (onglet
                   Séances) ; le jour J, la présence se constate par le code de la séance.
                 </p>
               </div>
@@ -627,7 +627,7 @@ const FormationSessionSpacePage: React.FC = () => {
 
               <div className="fss-foot">
                 <button type="button" className="fss-btn p" onClick={goAffiche}>
-                  Aller vers l&apos;affiche →
+                  Aller vers la fiche de la session →
                 </button>
               </div>
             </>

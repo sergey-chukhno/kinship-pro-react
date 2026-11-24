@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { getPersonalUserOrganizations, joinSchool, joinCompany, getJoinableCompaniesForMinor } from '../../api/Projects';
 import { removeSchoolAssociation, removeCompanyAssociation } from '../../api/UserDashBoard/Profile';
+import { getCurrentUser } from '../../api/Authentication';
 import { useSchoolSearch } from '../../hooks/useSchoolSearch';
 import { useToast } from '../../hooks/useToast';
 import { useStudentCodeReadOnly } from '../../hooks/useStudentCodeReadOnly';
@@ -19,8 +20,22 @@ interface Organization {
   my_status?: string;
 }
 
+function mapOrgRow(raw: any): Organization {
+  const status = raw?.my_status || raw?.status || raw?.membership_status;
+  return {
+    id: Number(raw.id),
+    name: raw.name || '',
+    city: raw.city,
+    logo_url: raw.logo_url,
+    my_role: raw.my_role || raw.role,
+    my_status: status ? String(status) : undefined,
+  };
+}
+
 const OrganizationsSection: React.FC = () => {
-  const { state } = useAppContext();
+  const { state, setUser } = useAppContext();
+  const userRef = useRef(state.user);
+  userRef.current = state.user;
   const { showSuccess, showError } = useToast();
   const { guardWrite } = useStudentCodeReadOnly();
   const [schools, setSchools] = useState<Organization[]>([]);
@@ -91,32 +106,75 @@ const OrganizationsSection: React.FC = () => {
     return () => clearTimeout(timer);
   }, [companySearchQuery, isMinorPersonalUser]);
 
+  /** Refresh available_contexts so « Changer d'organisation » updates without full page reload. */
+  const refreshUserContexts = useCallback(async () => {
+    try {
+      const res = await getCurrentUser();
+      const user = res?.data?.data ?? res?.data ?? res;
+      if (!user) return;
+      const base = userRef.current;
+      setUser({
+        ...(base || {}),
+        ...user,
+        name: user.full_name || user.name || base?.name || '',
+        available_contexts: user.available_contexts ?? base?.available_contexts,
+      });
+    } catch (error) {
+      console.error('Error refreshing user contexts:', error);
+    }
+  }, [setUser]);
+
   const loadOrganizations = useCallback(async () => {
     setIsLoading(true);
     try {
       const response = await getPersonalUserOrganizations();
-      setSchools(response.data.schools || []);
-      setCompanies(response.data.companies || []);
+      setSchools((response.data.schools || []).map(mapOrgRow));
+      setCompanies((response.data.companies || []).map(mapOrgRow));
     } catch (error) {
       console.error('Error loading organizations:', error);
       showError('Erreur lors du chargement des organisations');
     } finally {
       setIsLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [showError]);
 
   useEffect(() => {
-    loadOrganizations();
+    void loadOrganizations();
   }, [loadOrganizations]);
+
+  // When admin accepts elsewhere, pick up confirmed school in switcher without hard reload
+  useEffect(() => {
+    const onFocus = () => {
+      void loadOrganizations();
+      void refreshUserContexts();
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [loadOrganizations, refreshUserContexts]);
 
   const handleJoinSchool = async (schoolId: number) => {
     if (!guardWrite()) return;
+    const fromSearch = schoolSearchResults.find((s) => s.id === schoolId);
     try {
       await joinSchool(schoolId);
       showSuccess('Demande d\'adhésion envoyée avec succès');
       setSchoolSearchQuery('');
       await loadOrganizations();
+      // Patrick 03: show « En attente » immediately even if API omits pending rows
+      setSchools((prev) => {
+        if (prev.some((s) => Number(s.id) === Number(schoolId))) return prev;
+        if (!fromSearch) return prev;
+        return [
+          ...prev,
+          {
+            id: fromSearch.id,
+            name: fromSearch.name,
+            city: fromSearch.city,
+            my_status: 'pending',
+          },
+        ];
+      });
+      await refreshUserContexts();
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Erreur lors de la demande d\'adhésion';
       showError(errorMessage);

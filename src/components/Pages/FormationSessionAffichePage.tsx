@@ -329,12 +329,12 @@ const FormationSessionAffichePage: React.FC = () => {
   const failedCerts = closeMock.certificates.filter((c) => c.status === 'failed').length;
 
   return (
-    <section className="fa-page fa-session fsa-page" aria-label="Affiche de la session">
+    <section className="fa-page fa-session fsa-page" aria-label="Fiche de la session">
       <div className="fa-head">
         <button type="button" className="fa-back" onClick={back} aria-label="Retour">
           ←
         </button>
-        <h1>Affiche de la session</h1>
+        <h1>Fiche de la session</h1>
         <div className="fa-actions">
           {primaryCta && (
             <button

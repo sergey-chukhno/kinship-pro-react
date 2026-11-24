@@ -1858,10 +1858,19 @@ const ProjectSpacePage: React.FC = () => {
                 <button
                   type="button"
                   className="ps-tile"
+                  id="ps-preuves-tile"
                   onClick={() => {
+                    // Patrick envoi 2 / 05: stay on Espace de gestion — never old « Gestion du projet »
                     setSelectedProject(project);
-                    setCurrentPage('project-management');
-                    navigate('/project-management');
+                    setTab('gestion');
+                    setCurrentPage('project-space');
+                    navigate('/project-space');
+                    requestAnimationFrame(() => {
+                      document.getElementById('ps-preuves-tile')?.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'nearest',
+                      });
+                    });
                   }}
                 >
                   <div className="big">{project.badges || 0}</div>

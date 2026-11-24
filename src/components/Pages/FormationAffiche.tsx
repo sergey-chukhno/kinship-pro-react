@@ -385,7 +385,7 @@ const FormationAffiche: React.FC = () => {
         <button type="button" className="fa-back" onClick={back} aria-label="Retour">
           ←
         </button>
-        <h1>{isSessionFlow ? 'Affiche de la session' : 'La formation'}</h1>
+        <h1>{isSessionFlow ? 'Fiche de la session' : 'La formation'}</h1>
         <div className="fa-actions">
           {isSessionFlow && liveSession && !liveSession.startDeclared && (
             <button type="button" className="fa-btn amber" onClick={() => setDeclareStartOpen(true)}>
