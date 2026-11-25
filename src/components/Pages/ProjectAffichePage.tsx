@@ -1318,9 +1318,7 @@ const ProjectAffichePage: React.FC = () => {
                     <div className="pa-proof-banner-title">Preuve Projet — générée à la clôture</div>
                     <div className="pa-proof-banner-sub">Authentique et vérifiable.</div>
                   </div>
-                  <button type="button" className="pa-proof-banner-open" onClick={openBornProofPage}>
-                    Ouvrir la preuve
-                  </button>
+                  {/* Patrick envoi 2 / 07: « Ouvrir la preuve » hidden until Preuve Projet page is on */}
                 </div>
               )}
               {desc && <div className="pa-desc">{descShort}</div>}
