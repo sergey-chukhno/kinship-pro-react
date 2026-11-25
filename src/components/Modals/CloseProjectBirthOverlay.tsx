@@ -4,14 +4,14 @@ import './CloseProjectModal.css';
 interface CloseProjectBirthOverlayProps {
   title: string;
   organization?: string;
-  onOpen: () => void;
+  /** Page Preuve Projet still off (Patrick 07) — keep prop for callers; CTA hidden until page ships. */
+  onOpen?: () => void;
   onContinue: () => void;
 }
 
 const CloseProjectBirthOverlay: React.FC<CloseProjectBirthOverlayProps> = ({
   title,
   organization,
-  onOpen,
   onContinue,
 }) => (
   <div className="pp-birth-overlay" role="dialog" aria-label="Preuve Projet née">
@@ -34,7 +34,7 @@ const CloseProjectBirthOverlay: React.FC<CloseProjectBirthOverlayProps> = ({
       {organization ? <div className="pp-birth-card-meta">{organization}</div> : <div className="pp-birth-card-meta" />}
     </div>
     <div className="pp-birth-actions">
-      <button type="button" className="pp-birth-open" onClick={onOpen}>Ouvrir la preuve</button>
+      {/* Patrick envoi 2 / 07: hide until Preuve Projet page is on */}
       <button type="button" className="pp-birth-continue" onClick={onContinue}>Continuer</button>
     </div>
   </div>
