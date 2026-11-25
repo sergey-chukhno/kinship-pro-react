@@ -188,7 +188,7 @@ const FormateurSessionTodoTile: React.FC = () => {
         kicker: `Début prévu le ${formatSessionDateFr(session.startDate)}`,
         title: session.title,
         sub: `${participantCountLabel(pCount)} · ${session.seances.length} séance${session.seances.length > 1 ? 's' : ''} planifiée${session.seances.length > 1 ? 's' : ''}`,
-        cta: "Voir l'affiche →",
+        cta: 'Voir la fiche de la session →',
         onClick: () => {
           openSessionAffiche(session.id, 'formateur');
           setCurrentPage('formation-affiche');

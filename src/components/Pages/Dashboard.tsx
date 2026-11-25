@@ -1639,7 +1639,7 @@ const Dashboard: React.FC = () => {
         </div>
         {isUnder15(state.user?.birthday) && (
           <div className="checkin-alert" style={{ margin: '0 0 1rem', backgroundColor: '#e0f2fe', borderColor: '#0ea5e9', color: '#0c4a6e' }}>
-            Vous participez aux projets de vos établissements et organisations, et vous recevez vos preuves de compétences.
+            Vous participez aux projets de vos établissements et organisations, et vous recevez vos preuves de compétence.
           </div>
         )}
         {FEATURE_PIK_REMISE && showPikEncart && (
