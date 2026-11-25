@@ -37,6 +37,10 @@ const OrganizationsSection: React.FC = () => {
   const userRef = useRef(state.user);
   userRef.current = state.user;
   const { showSuccess, showError } = useToast();
+  const showErrorRef = useRef(showError);
+  showErrorRef.current = showError;
+  const setUserRef = useRef(setUser);
+  setUserRef.current = setUser;
   const { guardWrite } = useStudentCodeReadOnly();
   const [schools, setSchools] = useState<Organization[]>([]);
   const [companies, setCompanies] = useState<Organization[]>([]);
@@ -113,7 +117,7 @@ const OrganizationsSection: React.FC = () => {
       const user = res?.data?.data ?? res?.data ?? res;
       if (!user) return;
       const base = userRef.current;
-      setUser({
+      setUserRef.current({
         ...(base || {}),
         ...user,
         name: user.full_name || user.name || base?.name || '',
@@ -122,21 +126,23 @@ const OrganizationsSection: React.FC = () => {
     } catch (error) {
       console.error('Error refreshing user contexts:', error);
     }
-  }, [setUser]);
+  }, []);
 
-  const loadOrganizations = useCallback(async () => {
-    setIsLoading(true);
+  /** Stable loader — showError/setUser via refs to avoid remount blink loop. */
+  const loadOrganizations = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = Boolean(opts?.silent);
+    if (!silent) setIsLoading(true);
     try {
       const response = await getPersonalUserOrganizations();
       setSchools((response.data.schools || []).map(mapOrgRow));
       setCompanies((response.data.companies || []).map(mapOrgRow));
     } catch (error) {
       console.error('Error loading organizations:', error);
-      showError('Erreur lors du chargement des organisations');
+      showErrorRef.current('Erreur lors du chargement des organisations');
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
-  }, [showError]);
+  }, []);
 
   useEffect(() => {
     void loadOrganizations();
@@ -145,7 +151,7 @@ const OrganizationsSection: React.FC = () => {
   // When admin accepts elsewhere, pick up confirmed school in switcher without hard reload
   useEffect(() => {
     const onFocus = () => {
-      void loadOrganizations();
+      void loadOrganizations({ silent: true });
       void refreshUserContexts();
     };
     window.addEventListener('focus', onFocus);
@@ -159,7 +165,7 @@ const OrganizationsSection: React.FC = () => {
       await joinSchool(schoolId);
       showSuccess('Demande d\'adhésion envoyée avec succès');
       setSchoolSearchQuery('');
-      await loadOrganizations();
+      await loadOrganizations({ silent: true });
       // Patrick 03: show « En attente » immediately even if API omits pending rows
       setSchools((prev) => {
         if (prev.some((s) => Number(s.id) === Number(schoolId))) return prev;
@@ -187,7 +193,7 @@ const OrganizationsSection: React.FC = () => {
       await joinCompany(companyId);
       showSuccess('Demande d\'adhésion envoyée avec succès');
       setCompanySearchQuery('');
-      await loadOrganizations();
+      await loadOrganizations({ silent: true });
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Erreur lors de la demande d\'adhésion';
       showError(errorMessage);
@@ -204,7 +210,7 @@ const OrganizationsSection: React.FC = () => {
     try {
       await removeSchoolAssociation(schoolId);
       showSuccess('Association avec l\'école supprimée avec succès');
-      await loadOrganizations();
+      await loadOrganizations({ silent: true });
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Erreur lors de la suppression de l\'association';
       showError(errorMessage);
@@ -223,7 +229,7 @@ const OrganizationsSection: React.FC = () => {
     try {
       await removeCompanyAssociation(companyId);
       showSuccess('Association avec l\'entreprise supprimée avec succès');
-      await loadOrganizations();
+      await loadOrganizations({ silent: true });
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Erreur lors de la suppression de l\'association';
       showError(errorMessage);

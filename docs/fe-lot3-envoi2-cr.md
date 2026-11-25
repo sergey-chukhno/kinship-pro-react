@@ -3,7 +3,7 @@
 **Branche FE :** `feat/fe-lot3-envoi2`  
 **Base :** `origin/staging` (envoi 1 déjà mergé)  
 **Env :** FE staging (après PR) + API staging  
-**Merge :** **après GO Patrick**
+**Merge :** **après GO**
 
 ---
 
@@ -23,7 +23,8 @@
 
 | # | Point | Note |
 | --- | --- | --- |
-| **07a/b** | Ouvrir la preuve · même interrupteur Preuve Projet | **En attente Patrick** — non codé dans cette poussée |
+| **07a/b** | Ouvrir la preuve · même interrupteur Preuve Projet 
+| **En attente Patrick** — non codé dans cette poussée |
 
 ---
 
@@ -34,6 +35,7 @@
 
 ### 03
 - [`OrganizationsSection.tsx`](src/components/Settings/OrganizationsSection.tsx) : mapping `my_status`/`status` ; après `joinSchool`, reload + **optimistic** `pending` si l’API omet la ligne ; `getCurrentUser` + `setUser` pour rafraîchir `available_contexts` ; refresh au `window focus`.
+- **Hotfix staging :** boucle clignotement (deps `showError` + `setIsLoading(true)` à chaque load) — corrigée : loader stable via refs, refresh **silent** (pas de plein écran « Chargement… »).
 
 ### 05
 - [`ProjectSpacePage.tsx`](src/components/Pages/ProjectSpacePage.tsx) : tile Preuves ne navigue plus vers `/project-management` — reste sur `/project-space` onglet Gestion.
@@ -62,4 +64,6 @@
 
 ## Verdict
 
-5 points FE prêts pour PR staging. **07 reporté** (attente interrupteur Patrick). **Pas de merge sans GO.**
+5 points FE prêts pour PR staging. 
+**07 reporté** (attente réponse). 
+**Pas de merge sans GO.**
