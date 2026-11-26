@@ -17,11 +17,13 @@ import Verify from './components/Pages/Verify';
 import FunderHubPage from './components/Pages/FunderHubPage';
 import PublicProofPage from './components/Pages/PublicProofPage';
 import ProofIndex from './components/Pages/ProofIndex';
+import ProofPageRoute from './components/Pages/ProofPageRoute';
 // import PikDroits from './components/Pages/PikDroits';
 import FamilleLanding from './components/Pages/FamilleLanding';
 import SessionCoAttestPage from './components/Pages/SessionCoAttestPage';
 import './App.css';
 import './styles/formation-tokens.css';
+import './styles/proof-page-tokens.css';
 
 function App() {
   return (
@@ -44,6 +46,9 @@ function App() {
             <Route path="/verify" element={<Verify />} />
             <Route path="/financeur" element={<FunderHubPage />} />
             <Route path="/proof" element={<ProofIndex />} />
+            {/* V1.8.7 preuve page entière — étape 1 socle (mocks jusqu’API Sergey) */}
+            <Route path="/proof/project/:projectId" element={<ProofPageRoute mode="project" />} />
+            <Route path="/proof/:token" element={<ProofPageRoute mode="token" />} />
             {/* <Route path="/pik/droits" element={<PikDroits />} /> */}
             <Route path="/pb/:token" element={<PublicProofPage proofType="PB" />} />
             <Route path="/pe/:token" element={<PublicProofPage proofType="PE" />} />

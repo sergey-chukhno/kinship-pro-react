@@ -1,0 +1,42 @@
+/**
+ * Preuves page entière — tokens Design System (P6.1 / ref téléphone V1.5).
+ * Aucune couleur métier en dur dans les composants : utiliser ces variables.
+ */
+:root {
+  --ppg-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+  --ppg-ink: #16255a;
+  --ppg-muted: #637087;
+  --ppg-line: #dde3ee;
+  --ppg-bg: #edebe5;
+  --ppg-card: #ffffff;
+  --ppg-soft: #f3f5fa;
+  --ppg-touch: 48px;
+  --ppg-text-min: 12.5px;
+  --ppg-radius: 12px;
+  --ppg-radius-lg: 16px;
+
+  /* Familles (étape 1 : formation certifiée comme véhicule socle) */
+  --ppg-fam-formation-certified-from: #dcebdd;
+  --ppg-fam-formation-certified-to: #c3dcc6;
+  --ppg-fam-formation-certified-ink: #1b5e20;
+  --ppg-fam-formation-other-from: #ddeafb;
+  --ppg-fam-formation-other-to: #c2d9f5;
+  --ppg-fam-formation-other-ink: #1d4f8f;
+  --ppg-fam-project-from: #e4e9f4;
+  --ppg-fam-project-to: #d2daec;
+  --ppg-fam-project-ink: #003189;
+  --ppg-fam-project-enriched-from: #c7ceda;
+  --ppg-fam-project-enriched-mid: #eef1f6;
+  --ppg-fam-project-enriched-to: #9fa9b8;
+  --ppg-fam-project-enriched-ink: #34404f;
+  --ppg-fam-stage-from: #d5e8e6;
+  --ppg-fam-stage-to: #b8d4d0;
+  --ppg-fam-stage-ink: #0f4c4a;
+  --ppg-fam-mc-gold: #d4960a;
+  --ppg-fam-mc-gold-deep: #b8860b;
+  --ppg-fam-mc-eu: #003399;
+
+  --ppg-export-ink: #854f0b;
+  --ppg-avatar-masked: #9ca3af;
+  --ppg-danger-soft: #fef2f2;
+}
