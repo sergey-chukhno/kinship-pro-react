@@ -1,12 +1,12 @@
 /**
  * Rule 9 — sole reader of proof-page server responses (V1.8.7).
- * Screens consume ProofPageResponse only; never recompose labels/markers.
  */
 import axios from 'axios';
 import axiosClient, { axiosClientWithoutToken } from './config';
 import {
   getProofPageFixtureByProjectId,
   getProofPageFixtureByToken,
+  isProofPageGoneFixtureToken,
 } from '../data/proofPageFixtures';
 import {
   HolderZone,
@@ -16,8 +16,8 @@ import {
   ProofPageResponse,
   ProofPageView,
 } from '../types/proofPage';
+import { allowProofPageFixtures } from '../utils/proofPageEnv';
 
-/** Set REACT_APP_PROOF_PAGE_API=1 when Sergey étape 2 is live. */
 const USE_PROOF_PAGE_API = process.env.REACT_APP_PROOF_PAGE_API === '1';
 
 function asRecord(v: unknown): Record<string, unknown> {
@@ -28,9 +28,6 @@ function boolOrFalse(v: unknown): boolean {
   return v === true;
 }
 
-/**
- * Normalize server payload: missing interrupteurs = off; keep server display values as-is.
- */
 export function normalizeProofPageResponse(raw: unknown): ProofPageResponse {
   const root = asRecord(raw);
   const nested = asRecord(root.data ?? root);
@@ -39,7 +36,6 @@ export function normalizeProofPageResponse(raw: unknown): ProofPageResponse {
 
   const proof = proofRaw as unknown as ProofCore;
   const holder_zone = zoneRaw as unknown as HolderZone | null;
-
   const view = (nested.view as ProofPageView) || 'link';
 
   return {
@@ -73,6 +69,14 @@ export async function fetchProofByToken(token: string): Promise<ProofPageRespons
     }
   }
 
+  if (!allowProofPageFixtures()) {
+    throw new ProofPageNotFoundError();
+  }
+
+  if (isProofPageGoneFixtureToken(token)) {
+    throw new ProofPageGoneError();
+  }
+
   const fixture = getProofPageFixtureByToken(token);
   if (!fixture) throw new ProofPageNotFoundError();
   return normalizeProofPageResponse(fixture);
@@ -82,11 +86,17 @@ export async function fetchProofByToken(token: string): Promise<ProofPageRespons
 export async function fetchProofByProjectId(projectId: string | number): Promise<ProofPageResponse> {
   if (USE_PROOF_PAGE_API) {
     try {
-      const res = await axiosClient.get(`/api/v1/projects/${encodeURIComponent(String(projectId))}/proof`);
+      const res = await axiosClient.get(
+        `/api/v1/projects/${encodeURIComponent(String(projectId))}/proof`
+      );
       return normalizeProofPageResponse(res.data);
     } catch (err) {
       mapHttpError(err);
     }
+  }
+
+  if (!allowProofPageFixtures()) {
+    throw new ProofPageNotFoundError();
   }
 
   const fixture = getProofPageFixtureByProjectId(projectId);

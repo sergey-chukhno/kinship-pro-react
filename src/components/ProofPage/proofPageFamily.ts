@@ -8,6 +8,8 @@ export interface FamilyChrome {
   cssVarTo: string;
   cssVarMid?: string;
   cssVarInk: string;
+  /** Contour des cases repères (teinte claire de la bande). */
+  markerBorder: string;
 }
 
 function formatEndedDate(iso: string): string {
@@ -27,6 +29,7 @@ export function getFamilyChrome(family: ProofFamily): FamilyChrome {
         cssVarFrom: 'var(--ppg-fam-formation-certified-from)',
         cssVarTo: 'var(--ppg-fam-formation-certified-to)',
         cssVarInk: 'var(--ppg-fam-formation-certified-ink)',
+        markerBorder: 'var(--ppg-fam-formation-certified-marker)',
       };
     case 'formation_other':
       return {
@@ -35,6 +38,7 @@ export function getFamilyChrome(family: ProofFamily): FamilyChrome {
         cssVarFrom: 'var(--ppg-fam-formation-other-from)',
         cssVarTo: 'var(--ppg-fam-formation-other-to)',
         cssVarInk: 'var(--ppg-fam-formation-other-ink)',
+        markerBorder: 'var(--ppg-fam-formation-other-marker)',
       };
     case 'microcredential':
       return {
@@ -43,7 +47,8 @@ export function getFamilyChrome(family: ProofFamily): FamilyChrome {
         dateLine: (e) => `délivrée le ${formatEndedDate(e)}`,
         cssVarFrom: 'var(--ppg-fam-mc-gold-deep)',
         cssVarTo: 'var(--ppg-fam-mc-gold)',
-        cssVarInk: '#fff',
+        cssVarInk: 'var(--ppg-fam-mc-ink)',
+        markerBorder: 'var(--ppg-fam-mc-gold)',
       };
     case 'project_enriched':
       return {
@@ -53,6 +58,7 @@ export function getFamilyChrome(family: ProofFamily): FamilyChrome {
         cssVarMid: 'var(--ppg-fam-project-enriched-mid)',
         cssVarTo: 'var(--ppg-fam-project-enriched-to)',
         cssVarInk: 'var(--ppg-fam-project-enriched-ink)',
+        markerBorder: 'var(--ppg-fam-project-enriched-marker)',
       };
     case 'stage':
       return {
@@ -61,6 +67,7 @@ export function getFamilyChrome(family: ProofFamily): FamilyChrome {
         cssVarFrom: 'var(--ppg-fam-stage-from)',
         cssVarTo: 'var(--ppg-fam-stage-to)',
         cssVarInk: 'var(--ppg-fam-stage-ink)',
+        markerBorder: 'var(--ppg-fam-stage-marker)',
       };
     case 'project_basic':
     default:
@@ -70,8 +77,16 @@ export function getFamilyChrome(family: ProofFamily): FamilyChrome {
         cssVarFrom: 'var(--ppg-fam-project-from)',
         cssVarTo: 'var(--ppg-fam-project-to)',
         cssVarInk: 'var(--ppg-fam-project-ink)',
+        markerBorder: 'var(--ppg-fam-project-marker)',
       };
   }
+}
+
+/** Mobile : numéro coupé après le pays (PF·2027·FR). */
+export function shortProofNumber(proofNumber: string): string {
+  const parts = proofNumber.split('·').map((s) => s.trim()).filter(Boolean);
+  if (parts.length >= 3) return `${parts[0]}·${parts[1]}·${parts[2]}`;
+  return proofNumber;
 }
 
 export function formatProofDateRange(start: string, end: string): string {
