@@ -1,42 +1,71 @@
 /**
- * Preuves page entière — tokens Design System (P6.1 / ref téléphone V1.5).
- * Aucune couleur métier en dur dans les composants : utiliser ces variables.
+ * Preuves page entière — Design System tokens (P6.1 / ref téléphone V1.5).
+ * Patrick 27/11 : codes → variables ; jamais de hex dans les composants.
  */
 :root {
   --ppg-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
   --ppg-ink: #16255a;
+  --ppg-on-ink: #ffffff;
   --ppg-muted: #637087;
   --ppg-line: #dde3ee;
   --ppg-bg: #edebe5;
   --ppg-card: #ffffff;
   --ppg-soft: #f3f5fa;
+  --ppg-tabs-bg: #f8f9fc;
+  --ppg-hero-on: #ffffff;
+  --ppg-hero-on-muted: rgba(255, 255, 255, 0.78);
+  --ppg-seal-plate: rgba(255, 255, 255, 0.16);
+  --ppg-export-gold-soft: rgba(212, 150, 10, 0.12);
   --ppg-touch: 48px;
   --ppg-text-min: 12.5px;
   --ppg-radius: 12px;
   --ppg-radius-lg: 16px;
+  --ppg-radius-banner: 14px;
 
-  /* Familles (étape 1 : formation certifiée comme véhicule socle) */
+  /* Grand bandeau formation (écran 10) */
+  --ppg-hero-from: #1b5e20;
+  --ppg-hero-to: #14481a;
+  --ppg-hero-title: 34px;
+  --ppg-hero-dates: 13px;
+  --ppg-seal-size: 104px;
+
+  /* Famille — bande claire */
   --ppg-fam-formation-certified-from: #dcebdd;
   --ppg-fam-formation-certified-to: #c3dcc6;
   --ppg-fam-formation-certified-ink: #1b5e20;
+  --ppg-fam-formation-certified-marker: #c3dcc6;
   --ppg-fam-formation-other-from: #ddeafb;
   --ppg-fam-formation-other-to: #c2d9f5;
   --ppg-fam-formation-other-ink: #1d4f8f;
+  --ppg-fam-formation-other-marker: #c2d9f5;
   --ppg-fam-project-from: #e4e9f4;
   --ppg-fam-project-to: #d2daec;
   --ppg-fam-project-ink: #003189;
+  --ppg-fam-project-marker: #d2daec;
   --ppg-fam-project-enriched-from: #c7ceda;
   --ppg-fam-project-enriched-mid: #eef1f6;
   --ppg-fam-project-enriched-to: #9fa9b8;
   --ppg-fam-project-enriched-ink: #34404f;
+  --ppg-fam-project-enriched-marker: #c7ceda;
   --ppg-fam-stage-from: #d5e8e6;
   --ppg-fam-stage-to: #b8d4d0;
   --ppg-fam-stage-ink: #0f4c4a;
+  --ppg-fam-stage-marker: #b8d4d0;
   --ppg-fam-mc-gold: #d4960a;
   --ppg-fam-mc-gold-deep: #b8860b;
-  --ppg-fam-mc-eu: #003399;
 
+  --ppg-export-gold: #d4960a;
   --ppg-export-ink: #854f0b;
-  --ppg-avatar-masked: #9ca3af;
-  --ppg-danger-soft: #fef2f2;
+  --ppg-export-star-size: 18px;
+  --ppg-export-border: 2px;
+  --ppg-fam-mc-ink: #ffffff;
+
+  --ppg-pill-of-bg: #ff616f;
+  --ppg-pill-of-ink: #16255a;
+
+  --ppg-qr-size: 96px;
+  --ppg-qr-frame: #dde3ee;
+
+  --ppg-mobile-title: 20px;
+  --ppg-mobile-band-k: 22px;
 }

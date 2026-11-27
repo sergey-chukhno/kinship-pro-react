@@ -149,19 +149,39 @@ export const PROOF_PAGE_FIXTURES: Record<string, ProofPageResponse> = {
     holder_display: 'Données civiles effacées',
     holder_state: 'erased',
   }),
-  /** 43 — élève sans email vérifié */
-  'demo-sharing-closed': holderFixture(
-    { holder_display: 'Léa Giniez', holder_state: 'name' },
-    {
-      sharing_closed: true,
-      links_count: 0,
-      links_max: 5,
-      european_export: null,
-    }
-  ),
-  /** 48/49 — mêmes flags off (défaut) + exportable true pour tester ★ gated */
+  /** 43 — élève sans email vérifié + droits actifs (capture Patrick §14.5) */
+  'demo-sharing-closed': {
+    ...holderFixture(
+      { holder_display: 'Léa Giniez', holder_state: 'name' },
+      {
+        sharing_closed: true,
+        links_count: 0,
+        links_max: 5,
+        european_export: null,
+      }
+    ),
+    rights_page_enabled: true,
+  },
+  /** 48/49 — ★ gated (exportable true, flag off) */
   'demo-exportable-gated': linkFixture({ exportable: true }),
-  /** Interrupteurs allumés (smoke inverse) */
+  /** 44/45 — exportable + flag on (étoile + contour or) */
+  'demo-exportable': {
+    ...linkFixture({ exportable: true }),
+    european_export_ui_enabled: true,
+  },
+  /** Visiteur · interrupteur vérif allumé (« Vérifiable sans compte. ») */
+  'demo-link-verify': {
+    ...linkFixture(),
+    proof_verify_api_enabled: true,
+  },
+  /** Repères · deux cases (Patrick §14.6) */
+  'demo-two-markers': linkFixture({
+    markers: [
+      { value: '60 h', label: 'durée' },
+      { value: '12', label: 'participants' },
+    ],
+  }),
+  /** Interrupteurs allumés (titulaire) */
   'demo-flags-on': {
     ...holderFixture({ exportable: true }),
     proof_verify_api_enabled: true,
@@ -170,6 +190,13 @@ export const PROOF_PAGE_FIXTURES: Record<string, ProofPageResponse> = {
     rights_page_enabled: true,
   },
 };
+
+/** Token that simulates HTTP 410 (lien supprimé). */
+export const PROOF_PAGE_GONE_TOKEN = 'demo-gone';
+
+export function isProofPageGoneFixtureToken(token: string): boolean {
+  return token === PROOF_PAGE_GONE_TOKEN;
+}
 
 /** projectId mock → holder view */
 export const PROOF_PAGE_PROJECT_FIXTURES: Record<string, ProofPageResponse> = {

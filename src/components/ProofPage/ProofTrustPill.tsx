@@ -1,6 +1,6 @@
 import React from 'react';
 
-/** Huit libellés exacts V1.8.7 §1.4 ⑦ — affichage tel que servi (trust_label). */
+/** Huit libellés exacts V1.8.7 — OF certifié = corail Patrick §10. */
 export const TRUST_PILL_LABELS = [
   'Établissement scolaire',
   '◆ Organisme de formation certifié',
@@ -18,6 +18,12 @@ interface ProofTrustPillProps {
   countryCode?: string | null;
 }
 
+function pillClass(label: string): string {
+  if (label.includes('Organisme de formation certifié')) return 'ppg-pill ppg-pill-of';
+  if (label.includes('Vérifié')) return 'ppg-pill ppg-pill-verified';
+  return 'ppg-pill';
+}
+
 const ProofTrustPill: React.FC<ProofTrustPillProps> = ({ label, countryCode }) => {
   if (!label) return null;
   return (
@@ -27,7 +33,7 @@ const ProofTrustPill: React.FC<ProofTrustPillProps> = ({ label, countryCode }) =
           {countryCode}
         </span>
       ) : null}
-      <span className="ppg-pill">{label}</span>
+      <span className={pillClass(label)}>{label}</span>
     </span>
   );
 };
