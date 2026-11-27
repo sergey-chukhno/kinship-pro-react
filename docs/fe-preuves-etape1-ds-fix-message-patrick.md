@@ -1,25 +1,29 @@
-# Message Patrick — correctif étape 1 · à coller
+# Message Patrick — smokes correctif étape 1 · à coller
 
 ---
 
 Patrick —
 
-Poussée correctif **étape 1** (ton mail 27/11) sur `feat/fe-preuves-etape1-ds-fix` · CR : `docs/fe-preuves-etape1-ds-fix-cr.md`  
-**En attente de ton GO** avant merge staging · puis GO étape 2.
+Smokes staging **27/11** — correctif **étape 1** (ton mail DS / 404–410 / fixtures) · déjà mergé staging.  
+CR : `docs/fe-preuves-etape1-ds-fix-smokes-cr.md` · technique : `docs/fe-preuves-etape1-ds-fix-cr.md`  
+Captures §14 jointes.
 
-### Fixtures / prod
-En production : `REACT_APP_PROOF_PAGE_FIXTURES` absent ou `0` → **aucune fixture**, adresse inconnue → **404**.  
-Staging : `REACT_APP_PROOF_PAGE_FIXTURES=1`. Local : fixtures si non-production.
+### PASS
+- Visiteur + vérif · `/proof/demo-link-verify` (poste + téléphone ~400px : K bande, n° `PF·2027·FR`, accordéon « Détails et vérification »)
+- Exportable · `/proof/demo-exportable` (★ + contour or)
+- Titulaire droits · `/proof/demo-sharing-closed` (gestes fermés, phrase email, Exercer mes droits, zone après onglets)
+- Masqué / effacé · `demo-masked` · `demo-erased` (avatar `?`)
+- Deux repères · `/proof/demo-two-markers`
+- **404** · « Cette page n'est pas disponible. » + pied kinshipedu.fr  
+- **410** · `/proof/demo-gone` · textes + pied
+- noindex `robots=noindex,nofollow` (404, 410, pages preuve)
+- Pastille ◆ Organisme de formation certifié (corail)
+- Staging : `REACT_APP_PROOF_PAGE_FIXTURES=1` · prod sans flag = aucune fixture
 
-### 404 / 410
-Textes du 26/11 · pied kinshipedu.fr · noindex · fixture **`/proof/demo-gone`** pour la 410.
+### Soft (à ton avis)
+Téléphone : contenu OK, fond **autour** de la carte encore beige (`--ppg-bg`) — tu voulais plein blanc. On corrige tout de suite ou avec l’étape 2 ?
 
-### DS 3–13
-Bandeau hero, exportable (étoile + contour), avatars masqué/effacé, repères, QR navy, zone titulaire après onglets, pied, pastille corail, téléphone plein écran + accordéon « Détails et vérification », pied mobile.
-
-Captures §14 jointes / à suivre (dont `demo-link-verify`, `demo-sharing-closed` + droits, `demo-two-markers`).
-
-Prête pour **étape 2** dès ton GO sur cette poussée.
+Prête pour **étape 2** dès ton GO.
 
 Merci,  
 Rimma
